@@ -1,3 +1,4 @@
+import asyncio
 import json
 import uuid
 from datetime import datetime, timezone
@@ -31,8 +32,8 @@ def get_status_message(status: str, elapsed_seconds: float) -> str:
         return "Analyzing your request and determining search parameters..."
     elif status == "tool_calling":
         if elapsed_seconds > 20:
-            return "Still querying ClinicalTrials.gov database for matching trials..."
-        return "Querying ClinicalTrials.gov database for matching trials..."
+            return "Still fetching ClinicalTrials.gov data..."
+        return "Fetching ClinicalTrials.gov data..."
     elif status == "synthesizing":
         if elapsed_seconds > 45:
             return "Finalizing synthesis... This is taking longer than usual..."
@@ -107,6 +108,9 @@ async def generate_response_task(task_id: uuid.UUID, chat_id: int):
                         max_results=args.get('max_results', 5)
                     )
                     messages.append({"role": "tool", "tool_call_id": tool_call.id, "content": json.dumps(results)})
+
+            # Brief delay to make the fetching status visible
+            await asyncio.sleep(1.5)
 
             # Update status: Synthesizing results
             task.status = "synthesizing"

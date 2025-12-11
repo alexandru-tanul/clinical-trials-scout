@@ -146,9 +146,9 @@
         {{ partial_content|safe }}
         <div class="flex items-center gap-2 text-neutral-500 mt-2 text-sm">
             <div class="flex gap-1">
-                <div class="w-1.5 h-1.5 bg-neutral-500 rounded-full animate-bounce [animation-duration:1.4s]"></div>
-                <div class="w-1.5 h-1.5 bg-neutral-500 rounded-full animate-bounce [animation-duration:1.4s] [animation-delay:0.2s]"></div>
-                <div class="w-1.5 h-1.5 bg-neutral-500 rounded-full animate-bounce [animation-duration:1.4s] [animation-delay:0.4s]"></div>
+                <div class="w-1.5 h-1.5 bg-neutral-500 rounded-full animate-pulse"></div>
+                <div class="w-1.5 h-1.5 bg-neutral-500 rounded-full animate-pulse [animation-delay:0.2s]"></div>
+                <div class="w-1.5 h-1.5 bg-neutral-500 rounded-full animate-pulse [animation-delay:0.4s]"></div>
             </div>
             <span class="italic">{{ status_message|default("Continuing...") }}</span>
         </div>
@@ -156,9 +156,9 @@
     {% else %}
     <div class="flex items-center gap-2 text-neutral-400 px-2 py-1 text-sm">
         <div class="flex gap-1">
-            <div class="w-1.5 h-1.5 bg-neutral-500 rounded-full animate-bounce [animation-duration:1.4s]"></div>
-            <div class="w-1.5 h-1.5 bg-neutral-500 rounded-full animate-bounce [animation-duration:1.4s] [animation-delay:0.2s]"></div>
-            <div class="w-1.5 h-1.5 bg-neutral-500 rounded-full animate-bounce [animation-duration:1.4s] [animation-delay:0.4s]"></div>
+            <div class="w-1.5 h-1.5 bg-neutral-500 rounded-full animate-pulse"></div>
+            <div class="w-1.5 h-1.5 bg-neutral-500 rounded-full animate-pulse [animation-delay:0.2s]"></div>
+            <div class="w-1.5 h-1.5 bg-neutral-500 rounded-full animate-pulse [animation-delay:0.4s]"></div>
         </div>
         <span class="italic">{{ status_message|default("Starting...") }}</span>
     </div>
