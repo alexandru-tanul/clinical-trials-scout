@@ -63,6 +63,7 @@ def md(text: str) -> str:
 async def generate_response_task(task_id: uuid.UUID, chat_id: int):
     """Background task to generate LLM response with status updates."""
     try:
+        # Fetch task and chat
         task = await ResponseTask.get(id=task_id)
         chat = await Chat.get(id=chat_id).prefetch_related("messages")
 
@@ -70,6 +71,7 @@ async def generate_response_task(task_id: uuid.UUID, chat_id: int):
         task.status = "analyzing"
         await task.save()
 
+        # Build messages
         messages = [{"role": "system", "content": SYSTEM_PROMPT}] + [
             {"role": m.role, "content": m.content} for m in chat.messages
         ]
@@ -110,7 +112,7 @@ async def generate_response_task(task_id: uuid.UUID, chat_id: int):
             task.status = "synthesizing"
             await task.save()
 
-            final_message = (await acompletion(model=settings.SYNTHESIS_MODEL, messages=messages)).choices[0].message.content
+            final_message = (await acompletion(model=settings.SYNTHESIS_MODEL, messages=messages, tools=LLM_TOOLS)).choices[0].message.content
         else:
             final_message = assistant_message.content
 
@@ -279,10 +281,15 @@ async def generate_assistant_response(
     background_tasks.add_task(generate_response_task, task_id, chat.id)
 
     # Return status indicator that will poll for updates
+    initial_status_message = get_status_message("pending", 0)
     return templates.TemplateResponse(
         request,
         "chat.html",
-        {"task_id": str(task_id)},
+        {
+            "task_id": str(task_id),
+            "status": "pending",
+            "status_message": initial_status_message
+        },
         block_name="status_indicator"
     )
 
