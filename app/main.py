@@ -108,22 +108,15 @@ async def generate_response_task(task_id: uuid.UUID, chat_id: int):
             {"role": m.role, "content": m.content} for m in chat.messages
         ]
 
-        # Build thinking parameter if enabled
-        thinking_param = None
-        if settings.ENABLE_THINKING:
-            thinking_param = {
-                "type": "enabled",
-                "budget_tokens": settings.THINKING_BUDGET_TOKENS
-            }
-
-        # Get LLM response (with optional tool use and thinking)
+        # First call: tools enabled but NO thinking
+        # (Thinking + tools in same call causes Anthropic API conflicts)
+        # Thinking will be used in synthesis call instead where it helps most
         response = await acompletion(
             model=settings.MODEL,
             messages=messages,
             tools=LLM_TOOLS,
             tool_choice="auto",
             timeout=60.0,  # 60 second timeout for initial analysis
-            **({"thinking": thinking_param} if thinking_param else {})
         )
         assistant_message = response.choices[0].message
 
@@ -133,15 +126,29 @@ async def generate_response_task(task_id: uuid.UUID, chat_id: int):
 
             # Show initial thinking/summary if available
             if assistant_message.content:
-                task.partial_content = md(assistant_message.content)
+                # Extract text content for display (might be string or list of blocks)
+                display_content = assistant_message.content
+                if isinstance(display_content, list):
+                    # Extract text from blocks for display
+                    text_parts = []
+                    for block in display_content:
+                        if hasattr(block, 'text'):
+                            text_parts.append(block.text)
+                        elif isinstance(block, dict) and block.get('type') == 'text':
+                            text_parts.append(block.get('text', ''))
+                    display_content = '\n'.join(text_parts) if text_parts else ''
+                if display_content:
+                    task.partial_content = md(display_content)
 
             await task.save()
 
-            messages.append({
+            # Append assistant message with tool calls for context
+            assistant_msg = {
                 "role": "assistant",
                 "content": assistant_message.content,
                 "tool_calls": assistant_message.tool_calls
-            })
+            }
+            messages.append(assistant_msg)
 
             for tool_call in assistant_message.tool_calls:
                 if tool_call.function.name == "smart_search_clinical_trials":
@@ -176,11 +183,19 @@ async def generate_response_task(task_id: uuid.UUID, chat_id: int):
             task.status = "synthesizing"
             await task.save()
 
+            # Synthesis call - no tools, but CAN use thinking (no conflict)
+            # This is where thinking helps most - analyzing results
+            thinking_param = None
+            if settings.ENABLE_THINKING:
+                thinking_param = {
+                    "type": "enabled",
+                    "budget_tokens": settings.THINKING_BUDGET_TOKENS
+                }
+
             synthesis_response = await acompletion(
                 model=settings.SYNTHESIS_MODEL,
                 messages=messages,
-                tools=LLM_TOOLS,
-                timeout=120.0,  # 120 second timeout for synthesis (can be longer as it processes trial data)
+                timeout=120.0,  # 120 second timeout for synthesis
                 **({"thinking": thinking_param} if thinking_param else {})
             )
 
@@ -191,12 +206,9 @@ async def generate_response_task(task_id: uuid.UUID, chat_id: int):
             if synthesis_thinking and settings.SHOW_THINKING:
                 final_message = f"<details><summary> Extended Thinking Process</summary>\n\n{synthesis_thinking}\n\n</details>\n\n{final_message}"
         else:
-            # Extract thinking and text from direct response (no tool use)
-            direct_thinking, final_message = extract_thinking_and_text(assistant_message)
-
-            # Optionally prepend thinking content if configured
-            if direct_thinking and settings.SHOW_THINKING:
-                final_message = f"<details><summary> Extended Thinking Process</summary>\n\n{direct_thinking}\n\n</details>\n\n{final_message}"
+            # Direct response (no tool use) - extract text content
+            # Note: Thinking is not enabled for the first call (only synthesis)
+            _, final_message = extract_thinking_and_text(assistant_message)
 
         # Save the message
         await Message.create(chat=chat, role="assistant", content=final_message)
