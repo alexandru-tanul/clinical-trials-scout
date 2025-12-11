@@ -70,19 +70,27 @@ Table rules:
 - Eligibility column: Keep short like "Ages 18-65, Any sex, Must have diagnosis"
 - Add extra columns when they help answer the user's specific question
 
-After the table, add research insights (3-4 sentences):
+After the table, add research insights WITHOUT any heading or prefix. Write 3-5 short, separate paragraphs:
 - Highlight therapeutic approaches being tested (drug classes, combinations, mechanisms)
 - Note trial phases and recruitment patterns
 - Identify trends in trial design or endpoints
 - Point out notable sponsors or research centers
-Example: "Phase 2/3 trials dominate, testing CDK4/6 inhibitor combinations. Most use progression-free survival as primary endpoint. Three trials from Memorial Sloan Kettering focus on HER2+ subtypes."
+
+Format insights as separate short paragraphs (2-3 sentences each) for easy scanning. No headings like "Research insights:" or similar.
+
+Example format:
+"Phase 2/3 trials dominate the landscape. Most test CDK4/6 inhibitor combinations with chemotherapy.
+
+All trials use progression-free survival as primary endpoint. Response rates are secondary measures.
+
+Three trials from Memorial Sloan Kettering focus on HER2+ subtypes. This suggests institutional expertise in this area."
 
 Writing style:
 - Use simple words: "complete" instead of "comprehensive", "use" instead of "utilize", "help" instead of "facilitate", "best" instead of "optimal"
-- Write like clear instructions
-- One idea per sentence
-- Be direct and helpful
-- Keep it concise
+- Use imperative, direct sentences
+- One clear idea per sentence
+- Short paragraphs for easy digestion
+- Be direct and concise
 
 If no trials found: Say what you searched for. Suggest trying different terms."""
 

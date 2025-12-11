@@ -28,7 +28,7 @@
                                         [&_h3]:mb-2 [&_h3]:mt-4 [&_h3:first-child]:mt-0
                                         [&_pre]:mb-4 [&_pre]:p-4 [&_pre]:bg-neutral-800/70 [&_pre]:rounded-lg
                                         [&_code]:bg-neutral-800/70 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-sm
-                                        [&_table]:min-w-full [&_table]:border-collapse [&_table]:bg-neutral-800/50 [&_table]:rounded-lg [&_table]:mb-4 [&_table]:block [&_table]:overflow-x-auto
+                                        [&_table]:block [&_table]:overflow-x-auto [&_table]:mb-4 [&_table]:min-w-full [&_table]:border-collapse [&_table]:bg-neutral-800/50 [&_table]:rounded-lg
                                         [&_th]:bg-neutral-800/70 [&_th]:px-4 [&_th]:py-3 [&_th]:text-left [&_th]:font-medium [&_th]:text-neutral-300 [&_th]:border-b [&_th]:border-neutral-700/50
                                         [&_td]:px-4 [&_td]:py-3 [&_td]:border-b [&_td]:border-neutral-700/50
                                         [&_tr:last-child_td]:border-b-0 [&_tr:hover]:bg-neutral-700/30
@@ -90,7 +90,7 @@
 {# Fragment for assistant message #}
 {% block assistant_message %}
 <div class="chat-message flex justify-start mb-8 last:mb-0">
-    <div class="prose prose-invert max-w-none
+    <div class="prose prose-invert max-w-none min-w-0
         [&_p]:mb-4 [&_p]:leading-relaxed [&_p:last-child]:mb-0
         [&_ul]:mb-4 [&_ul]:space-y-2 [&_ul]:pl-5
         [&_ol]:mb-4 [&_ol]:space-y-2 [&_ol]:pl-5
@@ -127,7 +127,7 @@
      hx-trigger="load delay:8000ms"
      hx-swap="outerHTML">
     {% if partial_content %}
-    <div class="prose prose-invert max-w-none
+    <div class="prose prose-invert max-w-none min-w-0
         [&_p]:mb-4 [&_p]:leading-relaxed [&_p:last-child]:mb-0
         [&_ul]:mb-4 [&_ul]:space-y-2 [&_ul]:pl-5
         [&_ol]:mb-4 [&_ol]:space-y-2 [&_ol]:pl-5

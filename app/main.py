@@ -24,22 +24,22 @@ templates = Jinja2Blocks(directory=str(settings.TEMPLATES_DIR))
 def get_status_message(status: str, elapsed_seconds: float) -> str:
     """Generate status message based on current status and elapsed time."""
     if status == "pending":
-        return "Starting..."
+        return "Preparing to process your query..."
     elif status == "analyzing":
         if elapsed_seconds > 15:
-            return "Still analyzing your request..."
-        return "Analyzing your request..."
+            return "Still analyzing your request and determining search parameters..."
+        return "Analyzing your request and determining search parameters..."
     elif status == "tool_calling":
         if elapsed_seconds > 20:
-            return "Still fetching data from ClinicalTrials.gov..."
-        return "Fetching data from ClinicalTrials.gov"
+            return "Still querying ClinicalTrials.gov database for matching trials..."
+        return "Querying ClinicalTrials.gov database for matching trials..."
     elif status == "synthesizing":
         if elapsed_seconds > 45:
-            return "This is taking longer than usual..."
+            return "Finalizing synthesis... This is taking longer than usual..."
         elif elapsed_seconds > 20:
-            return "Formatting the response..."
-        return "Creating your results..."
-    return "Processing..."
+            return "Formatting results and generating research insights..."
+        return "Analyzing trial data and preparing comprehensive summary..."
+    return "Processing your request..."
 
 
 def md(text: str) -> str:
