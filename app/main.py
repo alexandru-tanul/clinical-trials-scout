@@ -15,7 +15,7 @@ from app.deps import get_session_key
 from app.lifespan import lifespan
 from app.models import Chat, Message, ResponseTask
 from app.prompts import EXAMPLE_PROMPTS, LLM_TOOLS, SYSTEM_PROMPT
-from app.services import search_clinical_trials
+from app.services import search_clinical_trials, smart_search_clinical_trials
 
 app = FastAPI(title="Clinical Trials Scout", lifespan=lifespan)
 app.add_middleware(SessionMiddleware, secret_key=settings.SECRET_KEY)
@@ -32,8 +32,8 @@ def get_status_message(status: str, elapsed_seconds: float) -> str:
         return "Analyzing your request and determining search parameters..."
     elif status == "tool_calling":
         if elapsed_seconds > 20:
-            return "Still fetching ClinicalTrials.gov data..."
-        return "Fetching ClinicalTrials.gov data..."
+            return "Still searching ClinicalTrials.gov with multiple strategies..."
+        return "Searching ClinicalTrials.gov with multiple strategies..."
     elif status == "synthesizing":
         if elapsed_seconds > 45:
             return "Finalizing synthesis... This is taking longer than usual..."
@@ -61,6 +61,37 @@ def md(text: str) -> str:
     return html
 
 
+def extract_thinking_and_text(message) -> tuple[str | None, str]:
+    """
+    Extract thinking and text content from LLM response.
+    Returns (thinking_content, text_content).
+
+    Handles both string responses and structured content blocks.
+    """
+    thinking_content = None
+    text_content = ""
+
+    # If content is a string, return it directly
+    if isinstance(message.content, str):
+        return None, message.content
+
+    # If content is a list of blocks (thinking mode enabled)
+    if isinstance(message.content, list):
+        for block in message.content:
+            if hasattr(block, 'type'):
+                if block.type == "thinking":
+                    thinking_content = block.thinking
+                elif block.type == "text":
+                    text_content += block.text
+            elif isinstance(block, dict):
+                if block.get('type') == "thinking":
+                    thinking_content = block.get('thinking', '')
+                elif block.get('type') == "text":
+                    text_content += block.get('text', '')
+
+    return thinking_content, text_content
+
+
 async def generate_response_task(task_id: uuid.UUID, chat_id: int):
     """Background task to generate LLM response with status updates."""
     try:
@@ -77,8 +108,23 @@ async def generate_response_task(task_id: uuid.UUID, chat_id: int):
             {"role": m.role, "content": m.content} for m in chat.messages
         ]
 
-        # Get LLM response (with optional tool use)
-        response = await acompletion(model=settings.MODEL, messages=messages, tools=LLM_TOOLS, tool_choice="auto")
+        # Build thinking parameter if enabled
+        thinking_param = None
+        if settings.ENABLE_THINKING:
+            thinking_param = {
+                "type": "enabled",
+                "budget_tokens": settings.THINKING_BUDGET_TOKENS
+            }
+
+        # Get LLM response (with optional tool use and thinking)
+        response = await acompletion(
+            model=settings.MODEL,
+            messages=messages,
+            tools=LLM_TOOLS,
+            tool_choice="auto",
+            timeout=60.0,  # 60 second timeout for initial analysis
+            **({"thinking": thinking_param} if thinking_param else {})
+        )
         assistant_message = response.choices[0].message
 
         if hasattr(assistant_message, 'tool_calls') and assistant_message.tool_calls:
@@ -98,13 +144,27 @@ async def generate_response_task(task_id: uuid.UUID, chat_id: int):
             })
 
             for tool_call in assistant_message.tool_calls:
-                if tool_call.function.name == "search_clinical_trials":
+                if tool_call.function.name == "smart_search_clinical_trials":
+                    args = json.loads(tool_call.function.arguments)
+                    results = await smart_search_clinical_trials(
+                        search_term=args.get('search_term', ''),
+                        location=args.get('location'),
+                        status=args.get('status'),
+                        phase=args.get('phase'),
+                        max_results=args.get('max_results', 5)
+                    )
+                    messages.append({"role": "tool", "tool_call_id": tool_call.id, "content": json.dumps(results)})
+
+                # Backward compatibility for old tool name
+                elif tool_call.function.name == "search_clinical_trials":
                     args = json.loads(tool_call.function.arguments)
                     results = await search_clinical_trials(
+                        query=args.get('query'),
                         condition=args.get('condition'),
                         intervention=args.get('intervention'),
                         location=args.get('location'),
                         status=args.get('status'),
+                        phase=args.get('phase'),
                         max_results=args.get('max_results', 5)
                     )
                     messages.append({"role": "tool", "tool_call_id": tool_call.id, "content": json.dumps(results)})
@@ -116,9 +176,27 @@ async def generate_response_task(task_id: uuid.UUID, chat_id: int):
             task.status = "synthesizing"
             await task.save()
 
-            final_message = (await acompletion(model=settings.SYNTHESIS_MODEL, messages=messages, tools=LLM_TOOLS)).choices[0].message.content
+            synthesis_response = await acompletion(
+                model=settings.SYNTHESIS_MODEL,
+                messages=messages,
+                tools=LLM_TOOLS,
+                timeout=120.0,  # 120 second timeout for synthesis (can be longer as it processes trial data)
+                **({"thinking": thinking_param} if thinking_param else {})
+            )
+
+            # Extract thinking and text from synthesis response
+            synthesis_thinking, final_message = extract_thinking_and_text(synthesis_response.choices[0].message)
+
+            # Optionally prepend thinking content if configured
+            if synthesis_thinking and settings.SHOW_THINKING:
+                final_message = f"<details><summary> Extended Thinking Process</summary>\n\n{synthesis_thinking}\n\n</details>\n\n{final_message}"
         else:
-            final_message = assistant_message.content
+            # Extract thinking and text from direct response (no tool use)
+            direct_thinking, final_message = extract_thinking_and_text(assistant_message)
+
+            # Optionally prepend thinking content if configured
+            if direct_thinking and settings.SHOW_THINKING:
+                final_message = f"<details><summary> Extended Thinking Process</summary>\n\n{direct_thinking}\n\n</details>\n\n{final_message}"
 
         # Save the message
         await Message.create(chat=chat, role="assistant", content=final_message)
@@ -129,10 +207,15 @@ async def generate_response_task(task_id: uuid.UUID, chat_id: int):
         task.partial_content = None  # Clear partial content when done
         await task.save()
 
+    except asyncio.TimeoutError:
+        task = await ResponseTask.get(id=task_id)
+        task.status = "error"
+        task.error = "Request timed out. The API took too long to respond. Please try again."
+        await task.save()
     except Exception as e:
         task = await ResponseTask.get(id=task_id)
         task.status = "error"
-        task.error = str(e)
+        task.error = f"An error occurred: {str(e)}"
         await task.save()
 
 

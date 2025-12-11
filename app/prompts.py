@@ -36,9 +36,11 @@ EXAMPLE_PROMPTS = [
 SYSTEM_PROMPT = r"""You help drug hunters and pharmaceutical researchers find clinical trials. Your users are professionals conducting drug discovery and development research. Write in simple, plain language. Use short sentences.
 
 When users ask about trials:
-1. Search using the tool
+1. Use the search tool with the main search term
 2. Present results as a table (no intro text)
 3. Add research insights after the table
+
+The search tool automatically handles different search strategies - just provide the search term and any filters.
 
 Format your response:
 - Show the table immediately (no intro sentences)
@@ -95,38 +97,39 @@ Writing style:
 If no trials found: Say what you searched for. Suggest trying different terms."""
 
 LLM_TOOLS = [
-        {
-            "type": "function",
-            "function": {
-                "name": "search_clinical_trials",
-                "description": "Search for clinical trials from ClinicalTrials.gov database. Use this when users ask about clinical trials, medical studies, or research for specific conditions. Returns detailed trial information including eligibility, locations, and status.",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "condition": {
-                            "type": "string",
-                            "description": "The medical condition or disease to search for (e.g., 'Breast Cancer', 'Type 2 Diabetes', 'Alzheimer Disease')"
-                        },
-                        "intervention": {
-                            "type": "string",
-                            "description": "The type of intervention or treatment (e.g., 'Drug', 'Behavioral', 'Surgery')"
-                        },
-                        "location": {
-                            "type": "string",
-                            "description": "Geographic location for trials (e.g., 'California', 'New York', 'United States')"
-                        },
-                        "status": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                            "description": "Trial recruitment status. Options: RECRUITING, NOT_YET_RECRUITING, ACTIVE_NOT_RECRUITING, COMPLETED, SUSPENDED, TERMINATED, WITHDRAWN"
-                        },
-                        "max_results": {
-                            "type": "integer",
-                            "description": "Maximum number of trials to return (default: 5, max: 50)"
-                        }
+    {
+        "type": "function",
+        "function": {
+            "name": "smart_search_clinical_trials",
+            "description": "Search for clinical trials from ClinicalTrials.gov. Just provide the search term - the system automatically tries multiple search strategies to find the best results. Works for drug names, conditions, molecular targets, protein names, or any other search term.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "search_term": {
+                        "type": "string",
+                        "description": "The main search term. Can be a drug name (e.g., 'pembrolizumab', 'LNS8801'), condition (e.g., 'breast cancer'), molecular target (e.g., 'GPER', 'PD-1'), or any other search term."
                     },
-                    "required": ["condition"]
-                }
+                    "location": {
+                        "type": "string",
+                        "description": "Optional: Geographic location filter (e.g., 'California', 'United States')"
+                    },
+                    "status": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Optional: Recruitment status. Options: RECRUITING, NOT_YET_RECRUITING, ACTIVE_NOT_RECRUITING, COMPLETED, SUSPENDED, TERMINATED, WITHDRAWN"
+                    },
+                    "phase": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Optional: Trial phase. Options: PHASE1, PHASE2, PHASE3, PHASE4, EARLY_PHASE1, NA"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "description": "Maximum trials to return (default: 5, max: 50)"
+                    }
+                },
+                "required": ["search_term"]
             }
         }
-    ]
+    }
+]

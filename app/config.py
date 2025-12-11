@@ -62,7 +62,14 @@ class Settings(BaseSettings):
     # LLM Configuration (using LiteLLM)
     # --------------------
     MODEL: str = "gpt-5-nano"
-    SYNTHESIS_MODEL: str = "gpt-4o-mini"
+    SYNTHESIS_MODEL: str = "gpt-5-nano"
+
+    # Extended Thinking Mode (for Claude models that support it)
+    # Supported models: claude-sonnet-4-5-20250929, claude-opus-4-5-20251101, etc.
+    # --------------------
+    ENABLE_THINKING: bool = False  # Set to True to enable extended thinking
+    THINKING_BUDGET_TOKENS: int = 10000  # Tokens Claude can use for thinking (1024-32000)
+    SHOW_THINKING: bool = True  # Show thinking content to users
 
     # Session
     # --------------------

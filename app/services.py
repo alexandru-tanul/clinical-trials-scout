@@ -4,6 +4,7 @@ Clinical Trial Scout Service
 This module provides functionality to search and compare clinical trials
 from ClinicalTrials.gov API v2.
 """
+import asyncio
 import aiohttp
 from typing import Optional, Dict, List, Any
 
@@ -42,21 +43,20 @@ async def search_clinical_trials(
     params = {
         "format": "json",
         "pageSize": min(max_results, 1000),  # API max is 1000
+        "countTotal": "true",  # Required to get totalCount in response
+        "sort": "@relevance",  # Sort by relevance for best matches first
     }
 
-    # Build query.term filter
-    query_parts = []
+    # Use dedicated query parameters for better search accuracy
+    # (These are more accurate than AREA syntax in query.term)
     if query:
-        query_parts.append(query)
+        params["query.term"] = query  # General free-text search
     if condition:
-        query_parts.append(f"AREA[Condition]{condition}")
+        params["query.cond"] = condition  # Dedicated condition search
     if intervention:
-        query_parts.append(f"AREA[Intervention]{intervention}")
+        params["query.intr"] = intervention  # Dedicated intervention search
     if location:
-        query_parts.append(f"AREA[Location]{location}")
-
-    if query_parts:
-        params["query.term"] = " AND ".join(query_parts)
+        params["query.locn"] = location  # Dedicated location search
 
     # Add status filter
     if status:
@@ -67,7 +67,7 @@ async def search_clinical_trials(
         params["filter.phase"] = ",".join(phase)
 
     try:
-        timeout = aiohttp.ClientTimeout(total=30)
+        timeout = aiohttp.ClientTimeout(total=60)  # Increased to 60s for complex queries
         async with aiohttp.ClientSession(timeout=timeout) as session:
             async with session.get(base_url, params=params) as response:
                 response.raise_for_status()
@@ -128,12 +128,19 @@ async def search_clinical_trials(
                 "error": None,
             }
 
+    except asyncio.TimeoutError:
+        return {
+            "success": False,
+            "total_count": 0,
+            "trials": [],
+            "error": "ClinicalTrials.gov API request timed out after 60 seconds. The service may be slow or unavailable. Please try again.",
+        }
     except aiohttp.ClientError as e:
         return {
             "success": False,
             "total_count": 0,
             "trials": [],
-            "error": str(e),
+            "error": f"ClinicalTrials.gov API error: {str(e)}",
         }
     except Exception as e:
         return {
@@ -141,6 +148,187 @@ async def search_clinical_trials(
             "total_count": 0,
             "trials": [],
             "error": f"Unexpected error: {str(e)}",
+        }
+
+
+def _generate_search_variations(term: str) -> List[str]:
+    """
+    Generate common variations of a search term.
+
+    Handles drug naming conventions:
+    - ABC1234 -> ABC-1234, ABC 1234
+    - ABC-1234 -> ABC1234, ABC 1234
+    - etc.
+    """
+    import re
+
+    variations = {term}  # Use set to avoid duplicates
+
+    # Pattern: letters followed by numbers (e.g., LNS8801)
+    letter_number = re.match(r'^([A-Za-z]+)(\d+)$', term)
+    if letter_number:
+        prefix, numbers = letter_number.groups()
+        variations.add(f"{prefix}-{numbers}")  # LNS-8801
+        variations.add(f"{prefix} {numbers}")  # LNS 8801
+
+    # Pattern: letters-numbers (e.g., LNS-8801)
+    hyphen_split = re.match(r'^([A-Za-z]+)-(\d+)$', term)
+    if hyphen_split:
+        prefix, numbers = hyphen_split.groups()
+        variations.add(f"{prefix}{numbers}")   # LNS8801
+        variations.add(f"{prefix} {numbers}")  # LNS 8801
+
+    # Pattern: letters space numbers (e.g., LNS 8801)
+    space_split = re.match(r'^([A-Za-z]+)\s+(\d+)$', term)
+    if space_split:
+        prefix, numbers = space_split.groups()
+        variations.add(f"{prefix}{numbers}")   # LNS8801
+        variations.add(f"{prefix}-{numbers}")  # LNS-8801
+
+    return list(variations)
+
+
+async def smart_search_clinical_trials(
+    search_term: str,
+    location: Optional[str] = None,
+    status: Optional[List[str]] = None,
+    phase: Optional[List[str]] = None,
+    max_results: int = 5,
+) -> Dict[str, Any]:
+    """
+    Smart multi-strategy search for clinical trials.
+
+    Instead of relying on the LLM to choose the right field (query, condition, intervention),
+    this function tries multiple search strategies in PARALLEL and returns the best results.
+
+    Strategies (run concurrently):
+    1. Free-text query (searches all fields)
+    2. Intervention field (for drug names)
+    3. Condition field (for disease names)
+    4. Query variations (with/without hyphens, spaces)
+
+    Args:
+        search_term: The main search term (drug name, condition, target, etc.)
+        location: Optional geographic location filter
+        status: Optional list of recruitment statuses
+        phase: Optional list of trial phases
+        max_results: Maximum results to return (default: 5)
+
+    Returns:
+        Dictionary containing:
+            - success (bool): Whether any strategy found results
+            - total_count (int): Total trials found by best strategy
+            - trials (list): List of trial data
+            - strategy_used (str): Which search strategy worked best
+            - all_strategies (dict): Results count from each strategy tried
+            - error (str): Error message if all strategies failed
+    """
+
+    # Generate search term variations
+    variations = _generate_search_variations(search_term)
+
+    # Build list of search tasks (strategies to try in parallel)
+    search_tasks = []
+    strategy_names = []
+
+    # Strategy 1: Free-text query (primary - most flexible)
+    search_tasks.append(
+        search_clinical_trials(
+            query=search_term,
+            location=location,
+            status=status,
+            phase=phase,
+            max_results=max_results
+        )
+    )
+    strategy_names.append(f"query:{search_term}")
+
+    # Strategy 2: Intervention field (for drug names)
+    search_tasks.append(
+        search_clinical_trials(
+            intervention=search_term,
+            location=location,
+            status=status,
+            phase=phase,
+            max_results=max_results
+        )
+    )
+    strategy_names.append(f"intervention:{search_term}")
+
+    # Strategy 3: Condition field (for disease names)
+    search_tasks.append(
+        search_clinical_trials(
+            condition=search_term,
+            location=location,
+            status=status,
+            phase=phase,
+            max_results=max_results
+        )
+    )
+    strategy_names.append(f"condition:{search_term}")
+
+    # Strategy 4+: Try variations (hyphenated, spaced, etc.)
+    for variation in variations:
+        if variation != search_term:  # Don't duplicate the original
+            search_tasks.append(
+                search_clinical_trials(
+                    query=variation,
+                    location=location,
+                    status=status,
+                    phase=phase,
+                    max_results=max_results
+                )
+            )
+            strategy_names.append(f"query:{variation}")
+
+    # Execute all searches in parallel
+    results = await asyncio.gather(*search_tasks, return_exceptions=True)
+
+    # Find the best result (highest total_count from successful searches)
+    best_result = None
+    best_strategy = None
+    best_count = 0
+    all_strategies = {}
+
+    for i, result in enumerate(results):
+        strategy = strategy_names[i]
+
+        # Handle exceptions from gather
+        if isinstance(result, Exception):
+            all_strategies[strategy] = {"count": 0, "error": str(result)}
+            continue
+
+        # Handle failed searches
+        if not result.get("success"):
+            all_strategies[strategy] = {"count": 0, "error": result.get("error")}
+            continue
+
+        count = result.get("total_count", 0)
+        all_strategies[strategy] = {"count": count}
+
+        if count > best_count:
+            best_count = count
+            best_result = result
+            best_strategy = strategy
+
+    # Return best result with metadata
+    if best_result:
+        return {
+            "success": True,
+            "total_count": best_result["total_count"],
+            "trials": best_result["trials"],
+            "strategy_used": best_strategy,
+            "all_strategies": all_strategies,
+            "error": None
+        }
+    else:
+        return {
+            "success": False,
+            "total_count": 0,
+            "trials": [],
+            "strategy_used": None,
+            "all_strategies": all_strategies,
+            "error": f"No trials found for '{search_term}' using any search strategy"
         }
 
 
