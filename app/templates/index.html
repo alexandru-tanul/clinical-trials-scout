@@ -19,7 +19,7 @@
         </div>
 
         <!-- Input and Examples at bottom -->
-        <div class="w-full max-w-5xl mx-auto flex flex-col gap-4 mb-8 md:mb-4 px-4">
+        <div class="w-full max-w-5xl mx-auto flex flex-col gap-4 px-4">
                 <!-- Example Queries Grid -->
                 <div class="w-full grid grid-cols-2 gap-4">
                     {% for prompt in example_prompts %}
@@ -41,19 +41,24 @@
                 </div>
 
                 <!-- Input Form -->
-                <form
-                        hx-post="/send"
-                        hx-swap="none"
-                        class="w-full"
-                >
-                    <input
-                            name="message"
-                            type="text"
-                            placeholder="Ask me anything."
-                            class="w-full bg-neutral-800/50 hover:bg-neutral-700/70 focus:bg-neutral-800 transition duration-300 outline-none rounded-xl py-4 px-6 placeholder-neutral-400"
-                            required
+                <div class="w-full mt-4 mb-8 md:mb-4">
+                    <form
+                            hx-post="/send"
+                            hx-swap="none"
+                            class="w-full relative"
                     >
-                </form>
+                        <input
+                                name="message"
+                                type="text"
+                                placeholder="Ask me anything."
+                                class="w-full bg-neutral-800/50 hover:bg-neutral-700/70 focus:bg-neutral-800 transition duration-300 outline-none rounded-xl py-4 pl-6 pr-12 placeholder-neutral-400"
+                                required
+                        >
+                        <button type="submit" class="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white transition flex items-center justify-center">
+                            <iconify-icon icon="mdi:send" style="font-size: 20px;"></iconify-icon>
+                        </button>
+                    </form>
+                </div>
         </div>
     </div>
 {% endblock %}
