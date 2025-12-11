@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Django
+db.sqlite3
+*.sqlite3
+/media/
+staticfiles/
+*.log
+
+# Environments
+.env
+.venv/
+venv/
+ENV/
+env/
+
+# Editors
+.idea/
+.vscode/
+.claude/
+CLAUDE.md
+*.sublime-project
+*.sublime-workspace
+
+# Node / Tailwind (if used)
+node_modules/
+tailwindcss.exe
+*.css.map
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Migrations (optional)
+*/migrations/*.py
+*/migrations/*.pyc
+
+# Build files
+dist/
+build/
+db.sqlite3

@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <div id="chat-page-container" class="flex-1 flex flex-col min-h-0">
+        <!-- Main Chat Area -->
+        <div class="flex-1 flex flex-col items-center min-h-0">
+            <div id="chat-container" class="w-full max-w-5xl flex-1 flex flex-col gap-4 bg-neutral-900 rounded-t-3xl px-4 py-8 overflow-y-auto overflow-x-hidden min-h-0 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden mask-y-from-95%"
+                 hx-on:load="this.scrollTop = this.scrollHeight"
+            >
+                    <!-- Messages list -->
+                    <div id="messages-list" class="contents">
+                        {% for msg in chat_history %}
+                            {% if msg.role == "user" %}
+                                <div class="chat-message flex justify-end mb-4 last:mb-0">
+                                    <div class="bg-neutral-800 text-neutral-100 px-5 py-2 rounded-l-full rounded-tr-full max-w-xs">
+                                        {{ msg.content }}
+                                    </div>
+                                </div>
+                            {% else %}
+                                <div class="chat-message flex justify-start mb-8 last:mb-0">
+                                    <div class="prose prose-invert max-w-none min-w-0
+                                        [&_p]:mb-4 [&_p]:leading-relaxed [&_p:last-child]:mb-0
+                                        [&_ul]:mb-4 [&_ul]:space-y-2 [&_ul]:pl-5
+                                        [&_ol]:mb-4 [&_ol]:space-y-2 [&_ol]:pl-5
+                                        [&_li]:leading-relaxed
+                                        [&_h1]:mb-4 [&_h1]:mt-6 [&_h1:first-child]:mt-0
+                                        [&_h2]:mb-3 [&_h2]:mt-5 [&_h2:first-child]:mt-0
+                                        [&_h3]:mb-2 [&_h3]:mt-4 [&_h3:first-child]:mt-0
+                                        [&_pre]:mb-4 [&_pre]:p-4 [&_pre]:bg-neutral-800/70 [&_pre]:rounded-lg
+                                        [&_code]:bg-neutral-800/70 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-sm
+                                        [&_table]:min-w-full [&_table]:border-collapse [&_table]:bg-neutral-800/50 [&_table]:rounded-lg [&_table]:mb-4 [&_table]:block [&_table]:overflow-x-auto
+                                        [&_th]:bg-neutral-800/70 [&_th]:px-4 [&_th]:py-3 [&_th]:text-left [&_th]:font-medium [&_th]:text-neutral-300 [&_th]:border-b [&_th]:border-neutral-700/50
+                                        [&_td]:px-4 [&_td]:py-3 [&_td]:border-b [&_td]:border-neutral-700/50
+                                        [&_tr:last-child_td]:border-b-0 [&_tr:hover]:bg-neutral-700/30
+                                        [&_a]:text-blue-400 [&_a]:underline [&_a:hover]:text-blue-300
+                                        [&_blockquote]:border-l-4 [&_blockquote]:border-neutral-600 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:my-4">
+                                        {{ msg.content|safe }}
+                                    </div>
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+            </div>
+
+            <div class="w-full justify-center mt-4 max-w-5xl px-4">
+                <div id="chat-form-container">
+                    <form
+                            hx-post="/send"
+                            hx-target="#messages-list"
+                            hx-swap="beforeend settle:50ms scroll:#chat-container:bottom"
+                            class="w-full relative"
+                            hx-on:submit="this.reset()"
+                    >
+                        <input
+                                name="message"
+                                type="text"
+                                placeholder="Ask me anything."
+                                class="w-full bg-neutral-800/50 hover:bg-neutral-700/70 focus:bg-neutral-800 transition duration-300 outline-none rounded-xl py-4 pl-6 pr-12 placeholder-neutral-400"
+                                required
+                        >
+                        <button type="submit" class="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white transition flex items-center justify-center">
+                            <iconify-icon icon="mdi:send" style="font-size: 20px;"></iconify-icon>
+                        </button>
+                    </form>
+
+                    <div
+                            id="trigger-bot-response"
+                            class="text-left text-white"
+                            hx-get="/generate-response"
+                            hx-target="#messages-list"
+                            hx-swap="beforeend scroll:#chat-container:bottom"
+                            hx-trigger="generateResponse from:body{% if auto_generate %}, load{% endif %}"
+                    >
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{# Fragment for user message #}
+{% block user_message %}
+<div class="chat-message flex justify-end mb-4 last:mb-0">
+    <div class="bg-neutral-800 text-neutral-100 px-5 py-2 rounded-l-full rounded-tr-full max-w-xs">
+        {{ message.content }}
+    </div>
+</div>
+{% endblock %}
+
+{# Fragment for assistant message #}
+{% block assistant_message %}
+<div class="chat-message flex justify-start mb-8 last:mb-0">
+    <div class="prose prose-invert max-w-none
+        [&_p]:mb-4 [&_p]:leading-relaxed [&_p:last-child]:mb-0
+        [&_ul]:mb-4 [&_ul]:space-y-2 [&_ul]:pl-5
+        [&_ol]:mb-4 [&_ol]:space-y-2 [&_ol]:pl-5
+        [&_li]:leading-relaxed
+        [&_h1]:mb-4 [&_h1]:mt-6 [&_h1:first-child]:mt-0
+        [&_h2]:mb-3 [&_h2]:mt-5 [&_h2:first-child]:mt-0
+        [&_h3]:mb-2 [&_h3]:mt-4 [&_h3:first-child]:mt-0
+        [&_pre]:mb-4 [&_pre]:p-4 [&_pre]:bg-neutral-800/70 [&_pre]:rounded-lg
+        [&_code]:bg-neutral-800/70 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-sm
+        [&_table]:min-w-full [&_table]:border-collapse [&_table]:bg-neutral-800/50 [&_table]:rounded-lg [&_table]:mb-4 [&_table]:block [&_table]:overflow-x-auto
+        [&_thead]:table-header-group [&_tbody]:table-row-group [&_tr]:table-row
+        [&_th]:table-cell [&_th]:bg-neutral-800/70 [&_th]:px-4 [&_th]:py-3 [&_th]:text-left [&_th]:font-medium [&_th]:text-neutral-300 [&_th]:border-b [&_th]:border-neutral-700/50
+        [&_td]:table-cell [&_td]:px-4 [&_td]:py-3 [&_td]:border-b [&_td]:border-neutral-700/50
+        [&_tr:last-child_td]:border-b-0 [&_tr:hover]:bg-neutral-700/30
+        [&_a]:text-blue-400 [&_a]:underline [&_a:hover]:text-blue-300
+        [&_blockquote]:border-l-4 [&_blockquote]:border-neutral-600 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:my-4">
+        {{ message.content|safe }}
+    </div>
+</div>
+{% endblock %}
+
+{# Fragment for error message #}
+{% block error_message %}
+<div class="chat-message flex justify-start mb-8 last:mb-0">
+    <div class="text-red-400 px-4 py-2">
+        {% if error %}{{ error }}{% else %}An error occurred. Please refresh the page and try again.{% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{# Fragment for status indicator with polling - shows partial content as it's generated #}
+{% block status_indicator %}
+<div class="chat-message flex justify-start mb-8 last:mb-0"
+     hx-get="/task-status/{{ task_id }}"
+     hx-trigger="load delay:8000ms"
+     hx-swap="outerHTML">
+    {% if partial_content %}
+    <div class="prose prose-invert max-w-none
+        [&_p]:mb-4 [&_p]:leading-relaxed [&_p:last-child]:mb-0
+        [&_ul]:mb-4 [&_ul]:space-y-2 [&_ul]:pl-5
+        [&_ol]:mb-4 [&_ol]:space-y-2 [&_ol]:pl-5
+        [&_li]:leading-relaxed
+        [&_h1]:mb-4 [&_h1]:mt-6 [&_h1:first-child]:mt-0
+        [&_h2]:mb-3 [&_h2]:mt-5 [&_h2:first-child]:mt-0
+        [&_h3]:mb-2 [&_h3]:mt-4 [&_h3:first-child]:mt-0
+        [&_pre]:mb-4 [&_pre]:p-4 [&_pre]:bg-neutral-800/70 [&_pre]:rounded-lg
+        [&_code]:bg-neutral-800/70 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-sm
+        [&_table]:min-w-full [&_table]:border-collapse [&_table]:bg-neutral-800/50 [&_table]:rounded-lg [&_table]:mb-4 [&_table]:block [&_table]:overflow-x-auto
+        [&_thead]:table-header-group [&_tbody]:table-row-group [&_tr]:table-row
+        [&_th]:table-cell [&_th]:bg-neutral-800/70 [&_th]:px-4 [&_th]:py-3 [&_th]:text-left [&_th]:font-medium [&_th]:text-neutral-300 [&_th]:border-b [&_th]:border-neutral-700/50
+        [&_td]:table-cell [&_td]:px-4 [&_td]:py-3 [&_td]:border-b [&_td]:border-neutral-700/50
+        [&_tr:last-child_td]:border-b-0 [&_tr:hover]:bg-neutral-700/30
+        [&_a]:text-blue-400 [&_a]:underline [&_a:hover]:text-blue-300
+        [&_blockquote]:border-l-4 [&_blockquote]:border-neutral-600 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:my-4">
+        {{ partial_content|safe }}
+        <div class="flex items-center gap-2 text-neutral-500 mt-2 text-sm">
+            <div class="flex gap-1">
+                <div class="w-1.5 h-1.5 bg-neutral-500 rounded-full animate-bounce [animation-duration:1.4s]"></div>
+                <div class="w-1.5 h-1.5 bg-neutral-500 rounded-full animate-bounce [animation-duration:1.4s] [animation-delay:0.2s]"></div>
+                <div class="w-1.5 h-1.5 bg-neutral-500 rounded-full animate-bounce [animation-duration:1.4s] [animation-delay:0.4s]"></div>
+            </div>
+            <span class="italic">{{ status_message|default("Continuing...") }}</span>
+        </div>
+    </div>
+    {% else %}
+    <div class="flex items-center gap-2 text-neutral-400 px-2 py-1 text-sm">
+        <div class="flex gap-1">
+            <div class="w-1.5 h-1.5 bg-neutral-500 rounded-full animate-bounce [animation-duration:1.4s]"></div>
+            <div class="w-1.5 h-1.5 bg-neutral-500 rounded-full animate-bounce [animation-duration:1.4s] [animation-delay:0.2s]"></div>
+            <div class="w-1.5 h-1.5 bg-neutral-500 rounded-full animate-bounce [animation-duration:1.4s] [animation-delay:0.4s]"></div>
+        </div>
+        <span class="italic">{{ status_message|default("Starting...") }}</span>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

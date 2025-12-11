@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <div id="landing-page" class="flex-1 flex flex-col">
+        <!-- Centered title and description -->
+        <div class="flex-1 flex flex-col items-center justify-center text-center px-4 md:px-8">
+            <div>
+                <iconify-icon icon="mdi:file-document-outline" class="text-neutral-600 mb-6" style="font-size: 96px;"></iconify-icon>
+                <h1 class="text-4xl font-bold text-neutral-300 mb-4">Clinical Trials Scout</h1>
+                <p class="text-neutral-400 text-lg mb-4">
+                    Search for clinical trials or chat with the AI assistant.
+                </p>
+                <!-- ClinicalTrials.gov Logo -->
+                <div class="flex items-center justify-center gap-2 mt-4">
+                    <span class="text-neutral-500 text-sm">Powered by</span>
+                    <img src="https://clinicaltrials.gov/assets/images/ctg-header-logo.svg" alt="ClinicalTrials.gov" class="h-6 opacity-70">
+                </div>
+            </div>
+        </div>
+
+        <!-- Input and Examples at bottom -->
+        <div class="w-full max-w-3xl mx-auto flex flex-col gap-4">
+                <!-- Example Queries Grid -->
+                <div class="w-full grid grid-cols-2 gap-4">
+                    {% for prompt in example_prompts %}
+                    <button
+                        hx-post="/send"
+                        hx-vals='{"message": "{{ prompt.message }}"}'
+                        hx-swap="none"
+                        class="cursor-pointer bg-neutral-800/30 hover:bg-neutral-700/50 p-4 rounded-xl transition text-left group"
+                    >
+                        <div class="flex flex-col gap-2">
+                            <div class="flex items-center gap-2">
+                                <iconify-icon icon="{{ prompt.icon }}" class="{{ prompt.icon_color }} group-hover:text-white transition flex-shrink-0" style="font-size: 20px;"></iconify-icon>
+                                <h3 class="text-sm font-semibold text-white">{{ prompt.title }}</h3>
+                            </div>
+                            <p class="text-xs text-neutral-400 text-left line-clamp-2">"{{ prompt.message }}"</p>
+                        </div>
+                    </button>
+                    {% endfor %}
+                </div>
+
+                <!-- Input Form -->
+                <form
+                        hx-post="/send"
+                        hx-swap="none"
+                        class="w-full"
+                >
+                    <input
+                            name="message"
+                            type="text"
+                            placeholder="Ask me anything."
+                            class="w-full bg-neutral-800/50 hover:bg-neutral-700/70 focus:bg-neutral-800 transition duration-300 outline-none rounded-xl py-4 px-6 placeholder-neutral-400"
+                            required
+                    >
+                </form>
+        </div>
+    </div>
+{% endblock %}

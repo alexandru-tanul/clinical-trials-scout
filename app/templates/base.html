@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Clinical Trials Scout{% endblock title %}</title>
+
+    <!-- HTMX (CDN) -->
+    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+
+    <!-- Iconify (CDN) -->
+    <script src="https://cdn.jsdelivr.net/npm/iconify-icon@3.0.0/dist/iconify-icon.min.js"></script>
+
+    <!-- Tailwind CSS Play CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+</head>
+<body class="relative flex flex-col md:flex-row p-0 md:p-8 text-neutral-300 bg-neutral-900 h-screen gap-0 md:gap-4">
+
+<div class="group flex">
+<!-- Hidden checkbox for hamburger menu toggle -->
+<input type="checkbox" id="menu-toggle" class="peer hidden">
+
+<!-- Hamburger menu button (mobile only) -->
+<label for="menu-toggle" class="fixed top-4 left-4 z-50 md:hidden cursor-pointer bg-neutral-800/50 hover:bg-neutral-700/70 p-2.5 rounded-xl transition">
+    <!-- Hamburger icon (shown when menu closed) -->
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 group-has-[:checked]:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+    </svg>
+    <!-- X icon (shown when menu open) -->
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 hidden group-has-[:checked]:block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+    </svg>
+</label>
+
+<!-- Backdrop overlay (mobile only, shown when menu is open) -->
+<label for="menu-toggle" class="peer-checked:max-md:block hidden fixed inset-0 bg-black/50 z-30 md:hidden cursor-pointer"></label>
+
+<!-- Sidebar Container -->
+<div class="select-none fixed md:relative top-0 left-0 md:top-auto md:left-auto h-full md:h-auto w-64 flex-shrink-0 flex flex-col gap-3 bg-neutral-900 md:bg-transparent pt-18 md:pt-0 p-4 md:p-0 z-40 -translate-x-full peer-checked:translate-x-0 md:translate-x-0 transition-transform duration-300 ease-in-out">
+    <!-- New Chat Button -->
+    <a
+        href="/"
+        hx-boost="true"
+        class="flex items-center justify-center gap-2 w-full bg-neutral-800/50 hover:bg-neutral-700/70 text-white px-4 py-3 rounded-xl transition"
+    >
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+        </svg>
+        New Chat
+    </a>
+
+    <!-- Chat History Sidebar -->
+    <div class="flex-1 bg-neutral-800/30 rounded-xl p-4 overflow-y-auto max-h-none [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+        <div class="mb-4">
+            <h2 class="text-lg font-semibold mb-3">Chat History</h2>
+            <input
+                type="text"
+                placeholder="Search chats..."
+                class="w-full bg-neutral-800/50 border border-neutral-700/50 rounded-xl px-3 py-2 text-sm outline-none focus:border-neutral-500 transition"
+                hx-get="/chat"
+                hx-trigger="keyup changed delay:300ms"
+                hx-target="#chat-list"
+                name="search"
+            >
+        </div>
+        <div id="chat-list" hx-get="/chat" hx-trigger="load, refreshChats from:body">
+            {% block chat_list %}
+            <div class="flex flex-col gap-2">
+                {% for chat in chats %}
+                    <div class="group flex items-center hover:bg-neutral-800/60 rounded-xl transition">
+                        <a
+                            href="/chats/{{ chat.id }}"
+                            hx-boost="true"
+                            hx-trigger="click"
+                            class="flex-1 text-left text-sm truncate cursor-pointer hover:text-white p-3"
+                        >
+                            {{ chat.title|default("New Chat") }}
+                        </a>
+                        <button
+                            hx-post="/chats/{{ chat.id }}/delete"
+                            hx-target="closest div"
+                            hx-swap="outerHTML swap:0.5s"
+                            class="opacity-0 group-hover:opacity-100 text-neutral-400 hover:text-red-400 transition p-3 flex-shrink-0"
+                            onclick="return confirm('Delete this chat?')"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                        </button>
+                    </div>
+                {% else %}
+                    <p class="text-neutral-400 text-sm text-center py-4">No chats yet</p>
+                {% endfor %}
+            </div>
+            {% endblock %}
+        </div>
+    </div>
+</div>
+</div>
+
+<!-- Main Content Area -->
+<div class="flex-1 py-4 md:py-0 px-4 flex flex-col min-h-0">
+{% block content %}
+{% endblock content %}
+</div>
+
+</body>
+</html>
