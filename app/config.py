@@ -62,6 +62,7 @@ class Settings(BaseSettings):
     # LLM Configuration (using LiteLLM)
     # --------------------
     MODEL: str = "gpt-5-nano"
+    SYNTHESIS_MODEL: str = "gpt-4o-mini"
 
     # Session
     # --------------------

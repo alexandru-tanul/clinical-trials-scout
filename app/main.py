@@ -110,7 +110,7 @@ async def generate_response_task(task_id: uuid.UUID, chat_id: int):
             task.status = "synthesizing"
             await task.save()
 
-            final_message = (await acompletion(model="gpt-4o-mini", messages=messages)).choices[0].message.content
+            final_message = (await acompletion(model=settings.SYNTHESIS_MODEL, messages=messages)).choices[0].message.content
         else:
             final_message = assistant_message.content
 
