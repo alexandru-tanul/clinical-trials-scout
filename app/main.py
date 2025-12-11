@@ -3,18 +3,21 @@ import uuid
 from datetime import datetime, timezone
 
 import markdown2
-from fastapi import FastAPI, Request, Form, Cookie, Response, BackgroundTasks
+from fastapi import FastAPI, Request, Form, Cookie, Response, BackgroundTasks, Depends
 from fastapi.responses import RedirectResponse
 from jinja2_fragments.fastapi import Jinja2Blocks
 from litellm import acompletion
+from starlette.middleware.sessions import SessionMiddleware
 
 from app.config import settings
+from app.deps import get_session_key
 from app.lifespan import lifespan
 from app.models import Chat, Message, ResponseTask
 from app.prompts import EXAMPLE_PROMPTS, LLM_TOOLS, SYSTEM_PROMPT
 from app.services import search_clinical_trials
 
 app = FastAPI(title="Clinical Trials Scout", lifespan=lifespan)
+app.add_middleware(SessionMiddleware, secret_key=settings.SECRET_KEY)
 templates = Jinja2Blocks(directory=str(settings.TEMPLATES_DIR))
 
 
@@ -128,8 +131,8 @@ async def generate_response_task(task_id: uuid.UUID, chat_id: int):
 
 
 @app.get("/")
-async def index(request: Request):
-    chats = await Chat.all().order_by("-updated_at")
+async def index(request: Request, session_key: str = Depends(get_session_key)):
+    chats = await Chat.filter(session_key=session_key).order_by("-updated_at")
     response = templates.TemplateResponse(
         request,
         "index.html",
@@ -143,12 +146,12 @@ async def index(request: Request):
 
 
 @app.get("/chats/{chat_id}")
-async def chat_detail(request: Request, chat_id: int):
-    chat = await Chat.get_or_none(id=chat_id).prefetch_related("messages")
+async def chat_detail(request: Request, chat_id: int, session_key: str = Depends(get_session_key)):
+    chat = await Chat.get_or_none(id=chat_id, session_key=session_key).prefetch_related("messages")
     if not chat:
         return RedirectResponse("/", status_code=302)
 
-    chats = await Chat.all().order_by("-updated_at")
+    chats = await Chat.filter(session_key=session_key).order_by("-updated_at")
     messages = list(chat.messages)
     chat_history = [
         {"role": m.role, "content": md(m.content) if m.role == "assistant" else m.content}
@@ -176,17 +179,21 @@ async def chat_detail(request: Request, chat_id: int):
 async def send_message(
     request: Request,
     message: str = Form(...),
-    chat_id: str | None = Cookie(default=None)
+    chat_id: str | None = Cookie(default=None),
+    session_key: str = Depends(get_session_key)
 ):
     # Get or create chat
     if chat_id:
-        chat = await Chat.get_or_none(id=int(chat_id))
+        chat = await Chat.get_or_none(id=int(chat_id), session_key=session_key)
     else:
         chat = None
 
     is_new = not chat
     if is_new:
-        chat = await Chat.create(title=message[:50] + ("..." if len(message) > 50 else ""))
+        chat = await Chat.create(
+            title=message[:50] + ("..." if len(message) > 50 else ""),
+            session_key=session_key
+        )
 
     await Message.create(chat=chat, role="user", content=message)
     await chat.save(update_fields=["updated_at"])
@@ -209,7 +216,8 @@ async def send_message(
 async def generate_assistant_response(
     request: Request,
     background_tasks: BackgroundTasks,
-    chat_id: str | None = Cookie(default=None)
+    chat_id: str | None = Cookie(default=None),
+    session_key: str = Depends(get_session_key)
 ):
     if not chat_id:
         return templates.TemplateResponse(
@@ -219,7 +227,16 @@ async def generate_assistant_response(
             block_name="error_message"
         )
 
-    chat = await Chat.get(id=int(chat_id)).prefetch_related("messages")
+    chat = await Chat.get_or_none(id=int(chat_id), session_key=session_key)
+    if not chat:
+        return templates.TemplateResponse(
+            request,
+            "chat.html",
+            {},
+            block_name="error_message"
+        )
+
+    await chat.fetch_related("messages")
 
     # Check if the last message is already an assistant message
     messages = list(chat.messages)
@@ -318,11 +335,11 @@ async def task_status(request: Request, task_id: str):
 
 
 @app.get("/chat")
-async def chat_list(request: Request, search: str = ""):
+async def chat_list(request: Request, search: str = "", session_key: str = Depends(get_session_key)):
     if search:
-        chats = await Chat.filter(title__icontains=search).order_by("-updated_at")
+        chats = await Chat.filter(session_key=session_key, title__icontains=search).order_by("-updated_at")
     else:
-        chats = await Chat.all().order_by("-updated_at")
+        chats = await Chat.filter(session_key=session_key).order_by("-updated_at")
 
     return templates.TemplateResponse(
         request,
@@ -333,8 +350,13 @@ async def chat_list(request: Request, search: str = ""):
 
 
 @app.post("/chats/{chat_id}/delete")
-async def delete_chat(request: Request, chat_id: int, chat_id_cookie: str | None = Cookie(default=None, alias="chat_id")):
-    chat = await Chat.get_or_none(id=chat_id)
+async def delete_chat(
+    request: Request,
+    chat_id: int,
+    chat_id_cookie: str | None = Cookie(default=None, alias="chat_id"),
+    session_key: str = Depends(get_session_key)
+):
+    chat = await Chat.get_or_none(id=chat_id, session_key=session_key)
     if not chat:
         return RedirectResponse("/", status_code=404)
 
