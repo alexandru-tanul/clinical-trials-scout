@@ -115,7 +115,7 @@ LLM_TOOLS = [
                         },
                         "max_results": {
                             "type": "integer",
-                            "description": "Maximum number of trials to return (default: 10, max: 50)"
+                            "description": "Maximum number of trials to return (default: 5, max: 50)"
                         }
                     },
                     "required": ["condition"]

@@ -15,7 +15,7 @@ async def search_clinical_trials(
     location: Optional[str] = None,
     status: Optional[List[str]] = None,
     phase: Optional[List[str]] = None,
-    max_results: int = 10,
+    max_results: int = 5,
 ) -> Dict[str, Any]:
     """
     Search for clinical trials using ClinicalTrials.gov API v2.
@@ -27,7 +27,7 @@ async def search_clinical_trials(
         location: Geographic location
         status: List of recruitment statuses (e.g., ['RECRUITING', 'NOT_YET_RECRUITING'])
         phase: List of trial phases (e.g., ['PHASE1', 'PHASE2', 'PHASE3', 'PHASE4'])
-        max_results: Maximum number of results to return (default: 10, max: 1000)
+        max_results: Maximum number of results to return (default: 5, max: 1000)
 
     Returns:
         Dictionary containing:

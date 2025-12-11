@@ -102,7 +102,7 @@ async def generate_response_task(task_id: uuid.UUID, chat_id: int):
                         intervention=args.get('intervention'),
                         location=args.get('location'),
                         status=args.get('status'),
-                        max_results=args.get('max_results', 10)
+                        max_results=args.get('max_results', 5)
                     )
                     messages.append({"role": "tool", "tool_call_id": tool_call.id, "content": json.dumps(results)})
 
