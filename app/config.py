@@ -61,11 +61,11 @@ class Settings(BaseSettings):
 
     # LLM Configuration (using LiteLLM)
     # --------------------
-    MODEL: str = "gpt-5-nano"
-    SYNTHESIS_MODEL: str = "gpt-5-nano"
+    MODEL: str = "claude-haiku-4-5"  # For tool calling (search decision)
+    SYNTHESIS_MODEL: str = "claude-haiku-4-5"  # For result synthesis (supports thinking)
 
     # Extended Thinking Mode (for Claude models that support it)
-    # Supported models: claude-sonnet-4-5-20250929, claude-opus-4-5-20251101, etc.
+    # Supported models: claude-sonnet-4-5, claude-opus-4-5, etc.
     # --------------------
     ENABLE_THINKING: bool = False  # Set to True to enable extended thinking
     THINKING_BUDGET_TOKENS: int = 10000  # Tokens Claude can use for thinking (1024-32000)

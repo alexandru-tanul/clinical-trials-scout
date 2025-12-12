@@ -284,11 +284,9 @@ async def smart_search_clinical_trials(
     # Execute all searches in parallel
     results = await asyncio.gather(*search_tasks, return_exceptions=True)
 
-    # Find the best result (highest total_count from successful searches)
-    best_result = None
-    best_strategy = None
-    best_count = 0
+    # Collect all successful results with their strategies
     all_strategies = {}
+    successful_results = []  # List of (priority_index, strategy, result)
 
     for i, result in enumerate(results):
         strategy = strategy_names[i]
@@ -306,10 +304,28 @@ async def smart_search_clinical_trials(
         count = result.get("total_count", 0)
         all_strategies[strategy] = {"count": count}
 
-        if count > best_count:
-            best_count = count
-            best_result = result
-            best_strategy = strategy
+        if count > 0:
+            successful_results.append((i, strategy, result))
+
+    # Selection logic: prioritize RELEVANCE over quantity
+    # Priority order: exact query > intervention > condition > variations
+    # Only fall back to variations if primary strategies find nothing
+    best_result = None
+    best_strategy = None
+
+    if successful_results:
+        # Sort by priority index (lower = higher priority)
+        successful_results.sort(key=lambda x: x[0])
+
+        # Primary strategies are indices 0, 1, 2 (query, intervention, condition)
+        primary_results = [r for r in successful_results if r[0] < 3]
+
+        if primary_results:
+            # Use first successful primary strategy (by priority)
+            _, best_strategy, best_result = primary_results[0]
+        else:
+            # Fall back to variations only if no primary strategy worked
+            _, best_strategy, best_result = successful_results[0]
 
     # Return best result with metadata
     if best_result:

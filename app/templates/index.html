@@ -5,43 +5,43 @@
         <!-- Centered title and description -->
         <div class="flex-1 flex flex-col items-center justify-center text-center px-4 md:px-8">
             <div>
-                <iconify-icon icon="mdi:file-document-outline" class="text-neutral-600 mb-6" style="font-size: 96px;"></iconify-icon>
-                <h1 class="text-4xl font-bold text-neutral-300 mb-4">Clinical Trials Scout</h1>
-                <p class="text-neutral-400 text-lg mb-4">
+                <iconify-icon icon="mdi:file-document-outline" class="text-neutral-600 mb-4 md:mb-6 text-6xl md:text-8xl"></iconify-icon>
+                <h1 class="text-2xl md:text-4xl font-bold text-neutral-300 mb-2 md:mb-4">Clinical Trials Scout</h1>
+                <p class="text-neutral-400 text-sm md:text-lg mb-2 md:mb-4">
                     Search for clinical trials or chat with the AI assistant.
                 </p>
                 <!-- ClinicalTrials.gov Logo -->
-                <div class="flex items-center justify-center gap-2 mt-4">
-                    <span class="text-neutral-500 text-sm">Powered by</span>
-                    <img src="https://clinicaltrials.gov/assets/images/ctg-header-logo.svg" alt="ClinicalTrials.gov" class="h-6 opacity-70">
+                <div class="flex items-center justify-center gap-2 mt-2 md:mt-4">
+                    <span class="text-neutral-500 text-xs md:text-sm">Powered by</span>
+                    <img src="https://clinicaltrials.gov/assets/images/ctg-header-logo.svg" alt="ClinicalTrials.gov" class="h-5 md:h-6 opacity-70">
                 </div>
             </div>
         </div>
 
         <!-- Input and Examples at bottom -->
-        <div class="w-full max-w-5xl mx-auto flex flex-col gap-4 px-4">
+        <div class="w-full max-w-5xl mx-auto flex flex-col gap-2 md:gap-4 px-4">
                 <!-- Example Queries Grid -->
-                <div class="w-full grid grid-cols-2 gap-4">
+                <div class="w-full grid grid-cols-2 gap-2 md:gap-4">
                     {% for prompt in example_prompts %}
                     <button
                         hx-post="/send"
                         hx-vals='{"message": "{{ prompt.message }}"}'
                         hx-swap="none"
-                        class="cursor-pointer bg-neutral-800/30 hover:bg-neutral-700/50 p-4 rounded-xl transition text-left group"
+                        class="cursor-pointer bg-neutral-800/30 hover:bg-neutral-700/50 p-2.5 md:p-4 rounded-lg md:rounded-xl transition text-left group"
                     >
-                        <div class="flex flex-col gap-2">
-                            <div class="flex items-center gap-2">
-                                <iconify-icon icon="{{ prompt.icon }}" class="{{ prompt.icon_color }} group-hover:text-white transition flex-shrink-0" style="font-size: 20px;"></iconify-icon>
-                                <h3 class="text-sm font-semibold text-white">{{ prompt.title }}</h3>
+                        <div class="flex flex-col gap-1 md:gap-2">
+                            <div class="flex items-center gap-1.5 md:gap-2">
+                                <iconify-icon icon="{{ prompt.icon }}" class="{{ prompt.icon_color }} group-hover:text-white transition flex-shrink-0 text-base md:text-xl"></iconify-icon>
+                                <h3 class="text-xs md:text-sm font-semibold text-white">{{ prompt.title }}</h3>
                             </div>
-                            <p class="text-xs text-neutral-400 text-left line-clamp-2">"{{ prompt.message }}"</p>
+                            <p class="text-[10px] md:text-xs text-neutral-400 text-left line-clamp-2">"{{ prompt.message }}"</p>
                         </div>
                     </button>
                     {% endfor %}
                 </div>
 
                 <!-- Input Form -->
-                <div class="w-full mt-4 mb-8 md:mb-4">
+                <div class="w-full mt-2 md:mt-4 mb-6 md:mb-4">
                     <form
                             hx-post="/send"
                             hx-swap="none"
@@ -51,11 +51,11 @@
                                 name="message"
                                 type="text"
                                 placeholder="Ask me anything."
-                                class="w-full bg-neutral-800/50 hover:bg-neutral-700/70 focus:bg-neutral-800 transition duration-300 outline-none rounded-xl py-4 pl-6 pr-12 placeholder-neutral-400"
+                                class="w-full bg-neutral-800/50 hover:bg-neutral-700/70 focus:bg-neutral-800 transition duration-300 outline-none rounded-lg md:rounded-xl py-3 md:py-4 pl-4 md:pl-6 pr-10 md:pr-12 placeholder-neutral-400 text-sm md:text-base"
                                 required
                         >
-                        <button type="submit" class="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white transition flex items-center justify-center">
-                            <iconify-icon icon="mdi:send" style="font-size: 20px;"></iconify-icon>
+                        <button type="submit" class="absolute right-2.5 md:right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white transition flex items-center justify-center">
+                            <iconify-icon icon="mdi:send" class="text-lg md:text-xl"></iconify-icon>
                         </button>
                     </form>
                 </div>

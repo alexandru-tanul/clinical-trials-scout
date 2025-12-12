@@ -142,17 +142,12 @@ async def generate_response_task(task_id: uuid.UUID, chat_id: int):
 
             await task.save()
 
-            # Append assistant message with tool calls for context
-            assistant_msg = {
-                "role": "assistant",
-                "content": assistant_message.content,
-                "tool_calls": assistant_message.tool_calls
-            }
-            messages.append(assistant_msg)
-
+            # Collect all tool results
+            all_tool_results = []
             for tool_call in assistant_message.tool_calls:
                 if tool_call.function.name == "smart_search_clinical_trials":
                     args = json.loads(tool_call.function.arguments)
+                    print(f"[DEBUG] smart_search called with: {args}")  # Debug logging
                     results = await smart_search_clinical_trials(
                         search_term=args.get('search_term', ''),
                         location=args.get('location'),
@@ -160,7 +155,11 @@ async def generate_response_task(task_id: uuid.UUID, chat_id: int):
                         phase=args.get('phase'),
                         max_results=args.get('max_results', 5)
                     )
-                    messages.append({"role": "tool", "tool_call_id": tool_call.id, "content": json.dumps(results)})
+                    print(f"[DEBUG] smart_search returned: strategy={results.get('strategy_used')}, count={results.get('total_count')}")
+                    all_tool_results.append({
+                        "search_term": args.get('search_term', ''),
+                        "results": results
+                    })
 
                 # Backward compatibility for old tool name
                 elif tool_call.function.name == "search_clinical_trials":
@@ -174,7 +173,10 @@ async def generate_response_task(task_id: uuid.UUID, chat_id: int):
                         phase=args.get('phase'),
                         max_results=args.get('max_results', 5)
                     )
-                    messages.append({"role": "tool", "tool_call_id": tool_call.id, "content": json.dumps(results)})
+                    all_tool_results.append({
+                        "query": args.get('query') or args.get('condition') or args.get('intervention'),
+                        "results": results
+                    })
 
             # Brief delay to make the fetching status visible
             await asyncio.sleep(1.5)
@@ -183,8 +185,27 @@ async def generate_response_task(task_id: uuid.UUID, chat_id: int):
             task.status = "synthesizing"
             await task.save()
 
-            # Synthesis call - no tools, but CAN use thinking (no conflict)
-            # This is where thinking helps most - analyzing results
+            # Build a FRESH conversation for synthesis (no tool_calls history)
+            # This avoids Anthropic API conflicts with thinking + tools
+            user_query = chat.messages[-1].content if chat.messages else "clinical trials"
+
+            # Format results summary for cleaner prompt
+            results_summary = json.dumps(all_tool_results, indent=2)
+
+            synthesis_prompt = f"""User asked: "{user_query}"
+
+The search tool returned these results from ClinicalTrials.gov:
+
+{results_summary}
+
+IMPORTANT: Present these results to the user following your system instructions. Format as a table with research insights. Do NOT tell the user to search again or suggest alternative search terms - you are the search tool, present what was found. If results seem off-topic, still present them in a table and note the discrepancy briefly."""
+
+            synthesis_messages = [
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": synthesis_prompt}
+            ]
+
+            # Synthesis call with optional thinking (safe - no tool history)
             thinking_param = None
             if settings.ENABLE_THINKING:
                 thinking_param = {
@@ -194,7 +215,7 @@ async def generate_response_task(task_id: uuid.UUID, chat_id: int):
 
             synthesis_response = await acompletion(
                 model=settings.SYNTHESIS_MODEL,
-                messages=messages,
+                messages=synthesis_messages,
                 timeout=120.0,  # 120 second timeout for synthesis
                 **({"thinking": thinking_param} if thinking_param else {})
             )
