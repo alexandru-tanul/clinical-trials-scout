@@ -16,6 +16,7 @@ from app.lifespan import lifespan
 from app.models import Chat, Message, ResponseTask
 from app.prompts import EXAMPLE_PROMPTS, LLM_TOOLS, SYSTEM_PROMPT
 from app.services import search_clinical_trials, smart_search_clinical_trials
+from app import drugcentral
 
 app = FastAPI(title="Clinical Trials Scout", lifespan=lifespan)
 app.add_middleware(SessionMiddleware, secret_key=settings.SECRET_KEY)
@@ -32,14 +33,14 @@ def get_status_message(status: str, elapsed_seconds: float) -> str:
         return "Analyzing your request and determining search parameters..."
     elif status == "tool_calling":
         if elapsed_seconds > 20:
-            return "Still searching ClinicalTrials.gov with multiple strategies..."
-        return "Searching ClinicalTrials.gov with multiple strategies..."
+            return "Still querying databases (ClinicalTrials.gov and DrugCentral)..."
+        return "Querying databases (ClinicalTrials.gov and DrugCentral)..."
     elif status == "synthesizing":
         if elapsed_seconds > 45:
             return "Finalizing synthesis... This is taking longer than usual..."
         elif elapsed_seconds > 20:
             return "Formatting results and generating research insights..."
-        return "Analyzing trial data and preparing comprehensive summary..."
+        return "Analyzing data and preparing comprehensive summary..."
     return "Processing your request..."
 
 
@@ -157,7 +158,20 @@ async def generate_response_task(task_id: uuid.UUID, chat_id: int):
                     )
                     print(f"[DEBUG] smart_search returned: strategy={results.get('strategy_used')}, count={results.get('total_count')}")
                     all_tool_results.append({
+                        "tool": "smart_search_clinical_trials",
                         "search_term": args.get('search_term', ''),
+                        "results": results
+                    })
+
+                elif tool_call.function.name == "query_drugcentral_database":
+                    args = json.loads(tool_call.function.arguments)
+                    print(f"[DEBUG] query_drugcentral_database called with: {args}")  # Debug logging
+                    question = args.get('question', '')
+                    results = await drugcentral.query_drugcentral_database(question)
+                    print(f"[DEBUG] DrugCentral returned {len(results)} characters")
+                    all_tool_results.append({
+                        "tool": "query_drugcentral_database",
+                        "question": question,
                         "results": results
                     })
 
@@ -174,6 +188,7 @@ async def generate_response_task(task_id: uuid.UUID, chat_id: int):
                         max_results=args.get('max_results', 5)
                     )
                     all_tool_results.append({
+                        "tool": "search_clinical_trials",
                         "query": args.get('query') or args.get('condition') or args.get('intervention'),
                         "results": results
                     })
@@ -194,11 +209,16 @@ async def generate_response_task(task_id: uuid.UUID, chat_id: int):
 
             synthesis_prompt = f"""User asked: "{user_query}"
 
-The search tool returned these results from ClinicalTrials.gov:
+The following tools were called and returned results:
 
 {results_summary}
 
-IMPORTANT: Present these results to the user following your system instructions. Format as a table with research insights. Do NOT tell the user to search again or suggest alternative search terms - you are the search tool, present what was found. If results seem off-topic, still present them in a table and note the discrepancy briefly."""
+IMPORTANT: Present these results to the user following your system instructions.
+- If clinical trials data is present, format as a table with research insights
+- If DrugCentral data is present, synthesize it with the trials data (show drug targets, mechanisms, FDA status alongside trials)
+- Use information from BOTH databases when available to provide comprehensive insights
+- Do NOT tell the user to search again or suggest alternative search terms - you are the search tool, present what was found
+- If results seem off-topic, still present them and note the discrepancy briefly"""
 
             synthesis_messages = [
                 {"role": "system", "content": SYSTEM_PROMPT},

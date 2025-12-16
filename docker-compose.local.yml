@@ -11,6 +11,11 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_DB: chatbot
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      DRUGCENTRAL_HOST: drugcentral_db
+      DRUGCENTRAL_PORT: 5432
+      DRUGCENTRAL_USER: postgres
+      DRUGCENTRAL_DB: drugcentral
+      DRUGCENTRAL_PASSWORD: ${DRUGCENTRAL_PASSWORD}
     volumes:
       - .:/code
     ports:
@@ -18,6 +23,8 @@ services:
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     depends_on:
       postgres:
+        condition: service_healthy
+      drugcentral_db:
         condition: service_healthy
     restart: unless-stopped
 
@@ -57,6 +64,33 @@ services:
       start_period: 5s
     restart: unless-stopped
 
+  drugcentral_db:
+    image: postgres:17
+    env_file: .env
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_DB: drugcentral
+      POSTGRES_PASSWORD: ${DRUGCENTRAL_PASSWORD}
+    init: true
+    command:
+      - "postgres"
+      - "-c"
+      - "shared_buffers=512MB"
+      - "-c"
+      - "maintenance_work_mem=256MB"
+    ports:
+      - "5433:5432"
+    volumes:
+      - drugcentral_data:/var/lib/postgresql/data
+      - ./data/01-drugcentral.dump.11012023.sql.gz:/docker-entrypoint-initdb.d/01-drugcentral.dump.sql.gz
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
   pgweb:
     image: sosedoff/pgweb
     ports:
@@ -70,3 +104,4 @@ services:
 
 volumes:
   postgres_data:
+  drugcentral_data:

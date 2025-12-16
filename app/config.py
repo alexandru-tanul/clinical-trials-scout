@@ -17,11 +17,25 @@ class Settings(BaseSettings):
     POSTGRES_PASSWORD: str
     POSTGRES_DB: str = "chatbot"
 
+    # DrugCentral Database
+    # --------------------
+    DRUGCENTRAL_HOST: str = "drugcentral_db"
+    DRUGCENTRAL_PORT: int = 5432
+    DRUGCENTRAL_USER: str = "postgres"
+    DRUGCENTRAL_PASSWORD: str
+    DRUGCENTRAL_DB: str = "drugcentral"
+
     @computed_field
     @property
     def DATABASE_URL(self) -> str:
         """Build PostgreSQL database URL."""
         return f"postgres://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+
+    @computed_field
+    @property
+    def DRUGCENTRAL_DATABASE_URL(self) -> str:
+        """Build DrugCentral database URL."""
+        return f"postgres://{self.DRUGCENTRAL_USER}:{self.DRUGCENTRAL_PASSWORD}@{self.DRUGCENTRAL_HOST}:{self.DRUGCENTRAL_PORT}/{self.DRUGCENTRAL_DB}"
 
     @computed_field
     @property
@@ -39,6 +53,18 @@ class Settings(BaseSettings):
                         "database": self.POSTGRES_DB,
                         "minsize": 5,  # Minimum pool size
                         "maxsize": 20,  # Maximum pool size
+                    }
+                },
+                "drugcentral": {
+                    "engine": "tortoise.backends.asyncpg",
+                    "credentials": {
+                        "host": self.DRUGCENTRAL_HOST,
+                        "port": self.DRUGCENTRAL_PORT,
+                        "user": self.DRUGCENTRAL_USER,
+                        "password": self.DRUGCENTRAL_PASSWORD,
+                        "database": self.DRUGCENTRAL_DB,
+                        "minsize": 2,  # Minimum pool size
+                        "maxsize": 10,  # Maximum pool size
                     }
                 }
             },

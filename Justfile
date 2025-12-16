@@ -1,6 +1,14 @@
 default:
     @just --list
 
+# Download DrugCentral database dump
+setup-drugcentral:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    mkdir -p data
+    cd data
+    [ -f "01-drugcentral.dump.11012023.sql.gz" ] || curl -L -o 01-drugcentral.dump.11012023.sql.gz https://unmtid-dbs.net/download/drugcentral.dump.11012023.sql.gz
+
 run *args:
     #!/usr/bin/env sh
     # Start the FastAPI server via Docker
@@ -35,6 +43,10 @@ logs:
 # Access PostgreSQL database
 psql:
     docker compose exec postgres psql -U postgres -d chatbot
+
+# Access DrugCentral database
+psql-drugcentral:
+    docker compose exec drugcentral_db psql -U postgres -d drugcentral
 
 # Run Aerich migrations (upgrade database)
 migrate:

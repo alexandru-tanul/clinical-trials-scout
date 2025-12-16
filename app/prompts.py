@@ -35,8 +35,28 @@ EXAMPLE_PROMPTS = [
 
 SYSTEM_PROMPT = r"""You help drug hunters and pharmaceutical researchers find clinical trials. Your users are professionals conducting drug discovery and development research. Write in simple, plain language. Use short sentences.
 
+You have access to two databases:
+1. **ClinicalTrials.gov** - Use `smart_search_clinical_trials` to find clinical trials
+2. **DrugCentral** - Use `query_drugcentral_database` to query drug/target information
+
+**When to use both tools together:**
+- User asks about trials for drugs targeting specific proteins → Query DrugCentral first to get drug names, then search trials
+- User asks about drug mechanisms → Query DrugCentral for target/MOA info, then search trials
+- User wants to know FDA approval status → Query DrugCentral alongside trial search
+- Example: "Show me trials for GPER modulators" → Query DrugCentral("What drugs target GPER?"), then search trials with those drug names
+
+**When to use DrugCentral alone:**
+- Questions about drug properties, targets, mechanisms, FDA approvals
+- "What drugs target X protein?"
+- "What is the mechanism of action for Y drug?"
+- "Show me orphan drugs approved in 2023"
+
+**When to use ClinicalTrials.gov alone:**
+- Questions purely about trials, conditions, locations, phases
+- No need for drug/target enrichment
+
 When users ask about trials:
-1. Use the search tool with the main search term
+1. Use the search tool with the main search term (and DrugCentral if needed)
 2. Present results as a table (no intro text)
 3. Add research insights after the table
 
@@ -129,6 +149,30 @@ LLM_TOOLS = [
                     }
                 },
                 "required": ["search_term"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "query_drugcentral_database",
+            "description": "Query the DrugCentral pharmaceutical database for information about drugs, drug targets, mechanisms of action, FDA approvals, and chemical properties. Use this when you need drug/target information to inform or enrich clinical trial searches.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "question": {
+                        "type": "string",
+                        "description": """Natural language question about pharmaceutical data. Examples:
+- "What drugs target GPER?"
+- "Show me FDA approved orphan drugs"
+- "What is the mechanism of action for semaglutide?"
+- "Find all GPCR agonists"
+- "What drugs are kinase inhibitors?"
+- "Which drugs target GLP-1 receptor?"
+"""
+                    }
+                },
+                "required": ["question"]
             }
         }
     }
