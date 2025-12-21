@@ -74,8 +74,9 @@ services:
       - "-c"
       - "maintenance_work_mem=256MB"
     volumes:
-      - drugcentral_data:/var/lib/postgresql/data
+      - ./data/drugcentral_data:/var/lib/postgresql/data
       - ./data/01-drugcentral.dump.11012023.sql.gz:/docker-entrypoint-initdb.d/01-drugcentral.dump.sql.gz
+      - ./data/02-create_simplified_views.sql:/docker-entrypoint-initdb.d/02-create_simplified_views.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
@@ -99,7 +100,6 @@ services:
 
 volumes:
   postgres_data:
-  drugcentral_data:
   static_volume:
 
 networks:

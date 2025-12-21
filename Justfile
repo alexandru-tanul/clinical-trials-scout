@@ -48,6 +48,23 @@ psql:
 psql-drugcentral:
     docker compose exec drugcentral_db psql -U postgres -d drugcentral
 
+# Update DrugCentral simplified views (run after modifying 02-create_simplified_views.sql)
+update-drugcentral-views:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "Checking if services are running..."
+    if ! docker compose ps drugcentral_db | grep -q "Up"; then
+        echo "Starting services..."
+        docker compose up -d
+        echo "Waiting for DrugCentral database to be ready..."
+        sleep 10
+    fi
+    echo "Updating DrugCentral simplified views..."
+    docker compose exec drugcentral_db psql -U postgres -d drugcentral -f /docker-entrypoint-initdb.d/02-create_simplified_views.sql
+    echo "Views updated! Restarting FastAPI..."
+    docker compose restart fastapi
+    echo "✅ Done! The drug_targets view now includes gene columns for Pharos enrichment."
+
 # Run Aerich migrations (upgrade database)
 migrate:
     docker compose run --rm fastapi aerich upgrade

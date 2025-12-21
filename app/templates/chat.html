@@ -1,53 +1,121 @@
 {% extends "base.html" %}
 
 {% block content %}
-    <div id="chat-page-container" class="flex-1 flex flex-col min-h-0">
+    <div id="chat-page-container" class="flex-1 flex flex-col min-h-0"
+         {% if chat_id %}
+         hx-ext="sse,morph"
+         sse-connect="/chat/{{ chat_id }}/updates"
+         sse-swap="chat-update"
+         hx-swap="morph:outerHTML"
+         {% endif %}>
         <!-- Main Chat Area -->
         <div class="flex-1 flex flex-col items-center min-h-0">
-            <div id="chat-container" class="w-full max-w-5xl flex-1 flex flex-col gap-4 bg-neutral-900 rounded-t-3xl px-4 py-8 overflow-y-auto overflow-x-hidden min-h-0 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden mask-y-from-95%"
-                 hx-on:load="this.scrollTop = this.scrollHeight"
-            >
-                    <!-- Messages list -->
-                    <div id="messages-list" class="contents">
-                        {% for msg in chat_history %}
-                            {% if msg.role == "user" %}
-                                <div class="chat-message flex justify-end mb-4 last:mb-0">
-                                    <div class="bg-neutral-800 text-neutral-100 px-5 py-2 rounded-l-full rounded-tr-full max-w-xs">
-                                        {{ msg.content }}
-                                    </div>
+            <div id="chat-container"
+                 class="w-full max-w-5xl flex-1 flex flex-col-reverse bg-neutral-900 rounded-t-3xl px-4 py-8 overflow-y-auto overflow-x-hidden min-h-0 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden mask-y-from-95%">
+                <!-- Messages list -->
+                <div id="messages-list" class="flex flex-col gap-6">
+                    {% for msg in chat_history %}
+                        {% if msg.role == "user" %}
+                            <div class="chat-message flex justify-end">
+                                <div class="bg-neutral-800 text-neutral-100 px-5 py-3 rounded-2xl max-w-2xl break-words">
+                                    {{ msg.content }}
                                 </div>
-                            {% else %}
-                                <div class="chat-message flex justify-start mb-8 last:mb-0">
-                                    <div class="prose prose-invert max-w-none min-w-0
-                                        [&_p]:mb-4 [&_p]:leading-relaxed [&_p:last-child]:mb-0
-                                        [&_ul]:mb-4 [&_ul]:space-y-2 [&_ul]:pl-5
-                                        [&_ol]:mb-4 [&_ol]:space-y-2 [&_ol]:pl-5
-                                        [&_li]:leading-relaxed
-                                        [&_h1]:mb-4 [&_h1]:mt-6 [&_h1:first-child]:mt-0
-                                        [&_h2]:mb-3 [&_h2]:mt-5 [&_h2:first-child]:mt-0
-                                        [&_h3]:mb-2 [&_h3]:mt-4 [&_h3:first-child]:mt-0
-                                        [&_pre]:mb-4 [&_pre]:p-4 [&_pre]:bg-neutral-800/70 [&_pre]:rounded-lg
-                                        [&_code]:bg-neutral-800/70 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-sm
-                                        [&_table]:block [&_table]:overflow-x-auto [&_table]:mb-4 [&_table]:min-w-full [&_table]:border-collapse [&_table]:bg-neutral-800/50 [&_table]:rounded-lg
-                                        [&_th]:bg-neutral-800/70 [&_th]:px-4 [&_th]:py-3 [&_th]:text-left [&_th]:font-medium [&_th]:text-neutral-300 [&_th]:border-b [&_th]:border-neutral-700/50
-                                        [&_td]:px-4 [&_td]:py-3 [&_td]:border-b [&_td]:border-neutral-700/50
-                                        [&_tr:last-child_td]:border-b-0 [&_tr:hover]:bg-neutral-700/30
-                                        [&_a]:text-blue-400 [&_a]:underline [&_a:hover]:text-blue-300
-                                        [&_blockquote]:border-l-4 [&_blockquote]:border-neutral-600 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:my-4">
-                                        {{ msg.content|safe }}
-                                    </div>
+                            </div>
+                        {% elif msg.role == "assistant" %}
+                            <div class="chat-message">
+                                {# Show assistant message content first #}
+                                {% if msg.content %}
+                                <div class="prose prose-invert max-w-none min-w-0
+                                    [&_p]:mb-4 [&_p]:leading-relaxed [&_p:last-child]:mb-0
+                                    [&_ul]:mb-4 [&_ul]:space-y-2 [&_ul]:pl-5
+                                    [&_ol]:mb-4 [&_ol]:space-y-2 [&_ol]:pl-5
+                                    [&_li]:leading-relaxed
+                                    [&_h1]:mb-4 [&_h1]:mt-6 [&_h1:first-child]:mt-0
+                                    [&_h2]:mb-3 [&_h2]:mt-5 [&_h2:first-child]:mt-0
+                                    [&_h3]:mb-2 [&_h3]:mt-4 [&_h3:first-child]:mt-0
+                                    [&_pre]:mb-4 [&_pre]:p-4 [&_pre]:bg-neutral-800/70 [&_pre]:rounded-lg
+                                    [&_code]:bg-neutral-800/70 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-sm
+                                    [&_table]:mb-4 [&_table]:w-auto [&_table]:border-collapse [&_table]:bg-neutral-800/50 [&_table]:rounded-lg [&_table]:overflow-hidden
+                                    [&_th]:bg-neutral-800/70 [&_th]:px-4 [&_th]:py-3 [&_th]:text-left [&_th]:font-medium [&_th]:text-neutral-300 [&_th]:border-b [&_th]:border-neutral-700/50
+                                    [&_td]:px-4 [&_td]:py-3 [&_td]:border-b [&_td]:border-neutral-700/50
+                                    [&_tr:last-child_td]:border-b-0 [&_tr:hover]:bg-neutral-700/30
+                                    [&_a]:text-blue-400 [&_a]:underline [&_a:hover]:text-blue-300
+                                    [&_blockquote]:border-l-4 [&_blockquote]:border-neutral-600 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:my-4">
+                                    {{ msg.content|md|safe }}
                                 </div>
-                            {% endif %}
-                        {% endfor %}
-                    </div>
+                                {% elif not msg.tool_calls %}
+                                    {# Empty assistant message - show "Generating response..." indicator #}
+                                    <div class="flex items-center gap-2 text-neutral-400 px-2 py-1 text-sm">
+                                        <div class="flex gap-1">
+                                            <div class="w-1.5 h-1.5 bg-neutral-500 rounded-full animate-pulse"></div>
+                                            <div class="w-1.5 h-1.5 bg-neutral-500 rounded-full animate-pulse [animation-delay:0.2s]"></div>
+                                            <div class="w-1.5 h-1.5 bg-neutral-500 rounded-full animate-pulse [animation-delay:0.4s]"></div>
+                                        </div>
+                                        <span class="italic">Generating response...</span>
+                                    </div>
+                                {% endif %}
+
+                                {# Show tool call details after content #}
+                                {% if msg.tool_calls %}
+                                <div class="mt-4 space-y-2 text-sm max-w-2xl">
+                                    {% for tool_call in msg.tool_calls %}
+                                        {# Find if there's a corresponding tool result message #}
+                                        {% set tool_result = namespace(found=false, content='', name='') %}
+                                        {% for result_msg in chat_history %}
+                                            {% if result_msg.role == "tool" and result_msg.tool_call_id == tool_call.id %}
+                                                {% set tool_result.found = true %}
+                                                {% set tool_result.content = result_msg.content %}
+                                                {% set tool_result.name = result_msg.name %}
+                                            {% endif %}
+                                        {% endfor %}
+
+                                        {# Parse the tool call arguments to get the question #}
+                                        {% set args = tool_call.function.arguments|from_json %}
+                                        {% set question = args.question if args.question is defined else args.search_term if args.search_term is defined else args.query if args.query is defined else '' %}
+
+                                        {# Determine database name from function name #}
+                                        {% set database = 'DrugCentral' if 'drugcentral' in tool_call.function.name else 'Pharos' if 'pharos' in tool_call.function.name else 'ClinicalTrials.gov' %}
+
+                                        {% if tool_result.found %}
+                                            {# Completed - show checkmark with expandable details #}
+                                            <details class="rounded-lg p-2 cursor-pointer">
+                                                <summary class="flex items-center gap-2 cursor-pointer hover:text-neutral-100 select-none">
+                                                    <span class="text-green-500">✓</span>
+                                                    <span class="text-neutral-300">Queried {{ database }}: "{{ question }}"</span>
+                                                </summary>
+                                                <div class="mt-3 pl-6 space-y-2 text-neutral-400 text-xs">
+                                                    <div>
+                                                        <strong class="text-neutral-300">Results:</strong>
+                                                        <div class="mt-1 p-2 bg-neutral-900/50 rounded overflow-x-auto max-h-64">{{ tool_result.content[:500] }}{% if tool_result.content|length > 500 %}...{% endif %}</div>
+                                                    </div>
+                                                </div>
+                                            </details>
+                                        {% else %}
+                                            {# Still running - show loading indicator #}
+                                            <div class="rounded-lg p-2">
+                                                <div class="flex items-center gap-2">
+                                                    <div class="flex gap-1">
+                                                        <div class="w-1.5 h-1.5 bg-neutral-500 rounded-full animate-pulse"></div>
+                                                        <div class="w-1.5 h-1.5 bg-neutral-500 rounded-full animate-pulse [animation-delay:0.2s]"></div>
+                                                        <div class="w-1.5 h-1.5 bg-neutral-500 rounded-full animate-pulse [animation-delay:0.4s]"></div>
+                                                    </div>
+                                                    <span class="text-neutral-300">Querying {{ database }}: "{{ question }}"</span>
+                                                </div>
+                                            </div>
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
             </div>
 
             <div class="w-full justify-center mt-4 mb-8 md:mb-4 max-w-5xl px-4">
                 <div id="chat-form-container">
                     <form
                             hx-post="/send"
-                            hx-target="#messages-list"
-                            hx-swap="beforeend settle:50ms scroll:#chat-container:bottom"
                             class="w-full relative"
                             hx-on:submit="this.reset()"
                     >
@@ -55,113 +123,15 @@
                                 name="message"
                                 type="text"
                                 placeholder="Ask me anything."
-                                class="w-full bg-neutral-800/50 hover:bg-neutral-700/70 focus:bg-neutral-800 transition duration-300 outline-none rounded-xl py-4 pl-6 pr-12 placeholder-neutral-400"
+                                class="w-full bg-neutral-800/50 hover:bg-neutral-700/70 focus:bg-neutral-800 transition duration-300 outline-none rounded-lg py-4 pl-6 pr-12 placeholder-neutral-400"
                                 required
                         >
                         <button type="submit" class="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white transition flex items-center justify-center">
                             <iconify-icon icon="mdi:send" style="font-size: 20px;"></iconify-icon>
                         </button>
                     </form>
-
-                    <div
-                            id="trigger-bot-response"
-                            class="text-left text-white"
-                            hx-get="/generate-response"
-                            hx-target="#messages-list"
-                            hx-swap="beforeend scroll:#chat-container:bottom"
-                            hx-trigger="generateResponse from:body{% if auto_generate %}, load{% endif %}"
-                    >
-                    </div>
                 </div>
             </div>
         </div>
     </div>
-{% endblock %}
-
-{# Fragment for user message #}
-{% block user_message %}
-<div class="chat-message flex justify-end mb-4 last:mb-0">
-    <div class="bg-neutral-800 text-neutral-100 px-5 py-2 rounded-l-full rounded-tr-full max-w-xs">
-        {{ message.content }}
-    </div>
-</div>
-{% endblock %}
-
-{# Fragment for assistant message #}
-{% block assistant_message %}
-<div class="chat-message flex justify-start mb-8 last:mb-0">
-    <div class="prose prose-invert max-w-none min-w-0
-        [&_p]:mb-4 [&_p]:leading-relaxed [&_p:last-child]:mb-0
-        [&_ul]:mb-4 [&_ul]:space-y-2 [&_ul]:pl-5
-        [&_ol]:mb-4 [&_ol]:space-y-2 [&_ol]:pl-5
-        [&_li]:leading-relaxed
-        [&_h1]:mb-4 [&_h1]:mt-6 [&_h1:first-child]:mt-0
-        [&_h2]:mb-3 [&_h2]:mt-5 [&_h2:first-child]:mt-0
-        [&_h3]:mb-2 [&_h3]:mt-4 [&_h3:first-child]:mt-0
-        [&_pre]:mb-4 [&_pre]:p-4 [&_pre]:bg-neutral-800/70 [&_pre]:rounded-lg
-        [&_code]:bg-neutral-800/70 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-sm
-        [&_table]:block [&_table]:overflow-x-auto [&_table]:mb-4 [&_table]:min-w-full [&_table]:border-collapse [&_table]:bg-neutral-800/50 [&_table]:rounded-lg
-        [&_th]:bg-neutral-800/70 [&_th]:px-4 [&_th]:py-3 [&_th]:text-left [&_th]:font-medium [&_th]:text-neutral-300 [&_th]:border-b [&_th]:border-neutral-700/50
-        [&_td]:px-4 [&_td]:py-3 [&_td]:border-b [&_td]:border-neutral-700/50
-        [&_tr:last-child_td]:border-b-0 [&_tr:hover]:bg-neutral-700/30
-        [&_a]:text-blue-400 [&_a]:underline [&_a:hover]:text-blue-300
-        [&_blockquote]:border-l-4 [&_blockquote]:border-neutral-600 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:my-4">
-        {{ message.content|safe }}
-    </div>
-</div>
-{% endblock %}
-
-{# Fragment for error message #}
-{% block error_message %}
-<div class="chat-message flex justify-start mb-8 last:mb-0">
-    <div class="text-red-400 px-4 py-2">
-        {% if error %}{{ error }}{% else %}An error occurred. Please refresh the page and try again.{% endif %}
-    </div>
-</div>
-{% endblock %}
-
-{# Fragment for status indicator with polling - shows partial content as it's generated #}
-{% block status_indicator %}
-<div class="chat-message flex justify-start mb-8 last:mb-0"
-     hx-get="/task-status/{{ task_id }}"
-     hx-trigger="load delay:8000ms"
-     hx-swap="outerHTML">
-    {% if partial_content %}
-    <div class="prose prose-invert max-w-none min-w-0
-        [&_p]:mb-4 [&_p]:leading-relaxed [&_p:last-child]:mb-0
-        [&_ul]:mb-4 [&_ul]:space-y-2 [&_ul]:pl-5
-        [&_ol]:mb-4 [&_ol]:space-y-2 [&_ol]:pl-5
-        [&_li]:leading-relaxed
-        [&_h1]:mb-4 [&_h1]:mt-6 [&_h1:first-child]:mt-0
-        [&_h2]:mb-3 [&_h2]:mt-5 [&_h2:first-child]:mt-0
-        [&_h3]:mb-2 [&_h3]:mt-4 [&_h3:first-child]:mt-0
-        [&_pre]:mb-4 [&_pre]:p-4 [&_pre]:bg-neutral-800/70 [&_pre]:rounded-lg
-        [&_code]:bg-neutral-800/70 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-sm
-        [&_table]:block [&_table]:overflow-x-auto [&_table]:mb-4 [&_table]:min-w-full [&_table]:border-collapse [&_table]:bg-neutral-800/50 [&_table]:rounded-lg
-        [&_th]:bg-neutral-800/70 [&_th]:px-4 [&_th]:py-3 [&_th]:text-left [&_th]:font-medium [&_th]:text-neutral-300 [&_th]:border-b [&_th]:border-neutral-700/50
-        [&_td]:px-4 [&_td]:py-3 [&_td]:border-b [&_td]:border-neutral-700/50
-        [&_tr:last-child_td]:border-b-0 [&_tr:hover]:bg-neutral-700/30
-        [&_a]:text-blue-400 [&_a]:underline [&_a:hover]:text-blue-300
-        [&_blockquote]:border-l-4 [&_blockquote]:border-neutral-600 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:my-4">
-        {{ partial_content|safe }}
-        <div class="flex items-center gap-2 text-neutral-500 mt-2 text-sm">
-            <div class="flex gap-1">
-                <div class="w-1.5 h-1.5 bg-neutral-500 rounded-full animate-pulse"></div>
-                <div class="w-1.5 h-1.5 bg-neutral-500 rounded-full animate-pulse [animation-delay:0.2s]"></div>
-                <div class="w-1.5 h-1.5 bg-neutral-500 rounded-full animate-pulse [animation-delay:0.4s]"></div>
-            </div>
-            <span class="italic">{{ status_message|default("Continuing...") }}</span>
-        </div>
-    </div>
-    {% else %}
-    <div class="flex items-center gap-2 text-neutral-400 px-2 py-1 text-sm">
-        <div class="flex gap-1">
-            <div class="w-1.5 h-1.5 bg-neutral-500 rounded-full animate-pulse"></div>
-            <div class="w-1.5 h-1.5 bg-neutral-500 rounded-full animate-pulse [animation-delay:0.2s]"></div>
-            <div class="w-1.5 h-1.5 bg-neutral-500 rounded-full animate-pulse [animation-delay:0.4s]"></div>
-        </div>
-        <span class="italic">{{ status_message|default("Starting...") }}</span>
-    </div>
-    {% endif %}
-</div>
 {% endblock %}
