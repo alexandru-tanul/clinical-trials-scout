@@ -111,11 +111,11 @@ async def generate_response(chat: Chat) -> str:
                 if hasattr(delta, 'content') and delta.content:
                     content_buffer += delta.content
 
-                    # Update DB every 0.5 seconds or every 100 characters
+                    # Update DB every 0.05 seconds or every 5 characters for smooth streaming
                     current_time = time.time()
                     should_update = (
-                        current_time - last_update_time > 0.5 or
-                        len(content_buffer) - last_update_length >= 100
+                        current_time - last_update_time > 0.05 or
+                        len(content_buffer) - last_update_length >= 5
                     )
 
                     if should_update:
