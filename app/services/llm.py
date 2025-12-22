@@ -74,9 +74,10 @@ async def generate_response(chat: Chat) -> str:
         llm_messages.extend(await chat.as_openai_api_format())
 
         # Agentic loop: Allow multiple rounds of tool calling
-        max_iterations = 5
+        max_iterations = 10
         iteration = 0
         final_message = ""
+        tools_were_called = False
 
         while iteration < max_iterations:
             iteration += 1
@@ -158,7 +159,10 @@ async def generate_response(chat: Chat) -> str:
                 final_message = content_buffer
                 break
 
-            # LLM wants to call tools - add to conversation
+            # LLM wants to call tools - mark that tools were called
+            tools_were_called = True
+
+            # Add to conversation
             llm_messages.append({
                 "role": "assistant",
                 "content": content_buffer or None,
@@ -192,6 +196,35 @@ async def generate_response(chat: Chat) -> str:
 
             # Brief delay to make the process visible
             await asyncio.sleep(1.5)
+
+        # If we hit max iterations but tools were called, force one final synthesis
+        if iteration >= max_iterations and tools_were_called and not final_message:
+            print(f"[WARNING] Hit max iterations ({max_iterations}), forcing final synthesis")
+
+            # Create final assistant message for synthesis
+            assistant_msg = await chat.add_assistant_message(content="", tool_calls=None)
+            await notify_chat_update(chat.id)
+
+            # Call LLM one more time with tool_choice="none" to force synthesis
+            response = await acompletion(
+                model=settings.MODEL,
+                messages=llm_messages,
+                tools=LLM_TOOLS,
+                tool_choice="none",  # Force text response, no more tools
+                stream=True,
+                timeout=60.0,
+            )
+
+            content_buffer = ""
+            async for chunk in response:
+                delta = chunk.choices[0].delta
+                if hasattr(delta, 'content') and delta.content:
+                    content_buffer += delta.content
+
+            assistant_msg.content = content_buffer
+            await assistant_msg.save()
+            await notify_chat_update(chat.id)
+            final_message = content_buffer
 
         return final_message
 

@@ -1,31 +1,31 @@
 EXAMPLE_PROMPTS = [
     {
-        'icon': 'mdi:heart-pulse',
-        'icon_color': 'text-neutral-400',
-        'title': 'Breast Cancer',
-        'description': 'Find recruiting trials for breast cancer treatment',
-        'message': 'Find recruiting trials for breast cancer'
-    },
-    {
-        'icon': 'mdi:water-percent',
-        'icon_color': 'text-neutral-400',
-        'title': 'Type 2 Diabetes',
-        'description': 'Search for diabetes management trials',
-        'message': 'Show me trials for Type 2 Diabetes'
-    },
-    {
         'icon': 'mdi:brain',
         'icon_color': 'text-neutral-400',
-        'title': "Alzheimer's Disease",
-        'description': "Explore trials for Alzheimer's treatment",
-        'message': 'What trials are available for Alzheimer Disease?'
+        'title': 'GPCR Targets',
+        'description': 'Find drugs targeting GPCRs for Alzheimer\'s disease',
+        'message': 'Find drugs targeting GPCRs for Alzheimer\'s disease'
     },
     {
-        'icon': 'mdi:virus',
+        'icon': 'mdi:molecule',
         'icon_color': 'text-neutral-400',
-        'title': 'COVID-19',
-        'description': 'Find trials related to COVID-19 research',
-        'message': 'Find COVID-19 clinical trials'
+        'title': 'Drug Repurposing',
+        'description': 'Clinical trials for repurposed kinase inhibitors in ovarian cancer',
+        'message': 'What clinical trials exist for repurposed kinase inhibitors in ovarian cancer?'
+    },
+    {
+        'icon': 'mdi:chart-bubble',
+        'icon_color': 'text-neutral-400',
+        'title': 'Dark Genome',
+        'description': 'Understudied protein targets with known bioactivity data',
+        'message': 'Show me understudied protein targets with known bioactivity data'
+    },
+    {
+        'icon': 'mdi:hospital-box',
+        'icon_color': 'text-neutral-400',
+        'title': 'Melanoma Repurposing',
+        'description': 'Anti-inflammatory drugs that could be repurposed for melanoma',
+        'message': 'Find anti-inflammatory drugs that could be repurposed for melanoma'
     }
 ]
 

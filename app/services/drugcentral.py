@@ -522,11 +522,17 @@ Schema information:
 
 User question: {question}
 
+CRITICAL RULES:
+1. ONLY use tables and columns shown in the schema documentation above
+2. If a table or column is not in the schema, it does NOT exist in the database
+3. Copy the exact structure and JOIN patterns from the most similar schema example
+4. Do not invent or assume any tables, columns, or relationships
+
 Instructions:
 - Return ONLY a valid PostgreSQL SELECT query
-- Do not include explanations or markdown formatting
-- Use proper PostgreSQL syntax
+- Use exact table and column names from schema
 - Limit results to 100 rows with LIMIT clause
+- Do not include explanations or markdown formatting
 - Return the SQL query directly without any wrapper text
 
 SQL Query:"""

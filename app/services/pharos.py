@@ -23,6 +23,32 @@ PHAROS_SCHEMA = """
 ## API Endpoint
 https://pharos-api.ncats.io/graphql
 
+## Complete List of Available Target Fields
+
+**Basic Fields (always available on target query):**
+- `sym` - Gene symbol (e.g., "ADORA1", "DRD2")
+- `name` - Full protein/target name
+- `tdl` - Target Development Level (Tclin, Tchem, Tbio, Tdark)
+- `fam` - Protein family (GPCR, Kinase, Ion Channel, etc.)
+- `novelty` - Novelty score (0-1, higher = more understudied)
+- `description` - Text description of the target
+
+**Nested/Complex Fields (return arrays or objects):**
+- `diseaseAssociationDetails` - Disease associations (returns array)
+  - Fields: `name`, `dataType`, `evidence`
+  - Note: Does NOT support `top` parameter
+- `ppiTargetInteractionDetails` - Protein-protein interactions (returns array)
+  - Fields: `ppitypes`, `score`, `interaction_type`, `evidence`
+  - Note: Does NOT support `top` parameter
+
+**Fields NOT available in Pharos API:**
+- ❌ `ligandCount` / `drugCount` - Not queryable
+- ❌ `ligands` / `drugs` - Not available in target query
+- ❌ Bioactivity filtering - Cannot filter by activity values
+- ❌ Ligand sorting - Cannot sort by number of ligands
+
+**For ligand/drug information:** Use DrugCentral database or check `tdl` field (Tclin/Tchem targets have drugs/ligands)
+
 ## Core Concept: The `target` Query
 
 ALL Pharos queries use the `target` query with parameter `q` (query filters).
@@ -188,39 +214,110 @@ query {
 }
 ```
 
-## Rule #6: Multiple Targets at Once
+## Rule #6: Searching Multiple Targets with Filters
 
-**IMPORTANT:** For multiple targets, query them individually in separate `target` queries.
-The `targets` (plural) query has complex filtering syntax and is NOT recommended for simple multi-gene lookups.
+**Use `targets` (plural) query for searching across targets with filters.**
 
-**Best approach - Query each target separately:**
+The `targets` query structure is nested and uses facets for filtering:
+
+```graphql
+query {
+  targets(filter: {
+    facets: [{
+      facet: "Target Development Level",
+      values: ["Tdark", "Tbio"]
+    }]
+  }) {
+    targets(top: 10) {
+      sym
+      name
+      tdl
+      fam
+      novelty
+    }
+  }
+}
+```
+
+**Common filter facets:**
+- "Target Development Level" - values: ["Tclin", "Tchem", "Tbio", "Tdark"]
+- "Protein Class" - protein family classification
+- "Associated Disease" - filter by disease associations
+
+**Example - Find understudied targets (Tdark/Tbio):**
+```graphql
+query {
+  targets(filter: {
+    facets: [{
+      facet: "Target Development Level",
+      values: ["Tdark", "Tbio"]
+    }]
+  }) {
+    targets(top: 20) {
+      sym
+      name
+      tdl
+      fam
+      novelty
+    }
+  }
+}
+```
+
+**Example - Find GPCRs:**
+```graphql
+query {
+  targets(filter: {
+    facets: [{
+      facet: "Protein Class",
+      values: ["GPCR"]
+    }]
+  }) {
+    targets(top: 10) {
+      sym
+      name
+      tdl
+      fam
+    }
+  }
+}
+```
+
+**Example - Find targets by disease:**
+```graphql
+query {
+  targets(filter: {
+    associatedDisease: "Alzheimer"
+  }) {
+    targets(top: 10) {
+      sym
+      name
+      tdl
+      diseaseAssociationDetails {
+        name
+        dataType
+        evidence
+      }
+    }
+  }
+}
+```
+
+**For specific genes, use `target` (singular) with aliases:**
 ```graphql
 query {
   adora1: target(q:{sym:"ADORA1"}) {
     sym
     name
     tdl
-    fam
-    novelty
   }
   adora2a: target(q:{sym:"ADORA2A"}) {
     sym
     name
     tdl
-    fam
-    novelty
-  }
-  adora2b: target(q:{sym:"ADORA2B"}) {
-    sym
-    name
-    tdl
-    fam
-    novelty
   }
 }
 ```
-
-This approach uses GraphQL aliases to query multiple targets in a single request.
 
 ## Complete Examples
 
@@ -319,6 +416,56 @@ query {
 }
 ```
 
+### Example 5: SEARCH - Find Understudied Targets
+**Question:** "Show me understudied protein targets with known bioactivity data"
+
+```graphql
+query {
+  targets(filter: {
+    facets: [{
+      facet: "Target Development Level",
+      values: ["Tdark", "Tbio"]
+    }]
+  }) {
+    targets(top: 20) {
+      sym
+      name
+      tdl
+      fam
+      novelty
+      description
+    }
+  }
+}
+```
+
+### Example 6: SEARCH - Find GPCR Targets for Disease
+**Question:** "Find GPCR targets associated with Alzheimer's disease"
+
+```graphql
+query {
+  targets(filter: {
+    associatedDisease: "Alzheimer",
+    facets: [{
+      facet: "Protein Class",
+      values: ["GPCR"]
+    }]
+  }) {
+    targets(top: 15) {
+      sym
+      name
+      tdl
+      fam
+      diseaseAssociationDetails {
+        name
+        dataType
+        evidence
+      }
+    }
+  }
+}
+```
+
 ## Important Notes
 
 - **Always include `sym` and `name`** in your query for context
@@ -351,11 +498,16 @@ Schema documentation:
 
 User question: {question}
 
+CRITICAL RULES:
+1. ONLY use fields and filters shown in the schema examples above
+2. If a field or filter is not in an example, it does NOT exist in the API
+3. Copy the exact structure from the most similar example
+4. Do not invent or assume any fields, filters, or parameters
+
 Instructions:
 - Return ONLY a valid GraphQL query
+- Use exact field names and structure from examples
 - Do not include explanations or markdown formatting
-- Use the exact field names from the schema
-- Follow the examples for query structure
 - Return the GraphQL query directly without any wrapper text
 
 GraphQL Query:"""
