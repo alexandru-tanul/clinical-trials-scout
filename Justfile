@@ -1,7 +1,7 @@
 default:
     @just --list
 
-# Initialize project: download dependencies and setup databases
+# Initialize project: download dependencies and prepare environment
 init:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -21,15 +21,26 @@ init:
     echo "Building Docker images..."
     docker compose build
     echo ""
-    echo "Starting services and initializing databases..."
-    docker compose up -d
+    echo "========================================="
+    echo "Project initialized successfully!"
+    echo "========================================="
     echo ""
-    echo "Waiting for databases to initialize (this may take a few minutes on first run)..."
-    echo "You can monitor progress with: docker compose logs -f"
+    echo "IMPORTANT: Before starting the services, please update the .env file with the correct values:"
     echo ""
-    echo "Project initialized! Services are running:"
+    echo "  Required configuration:"
+    echo "    - SECRET_KEY: Generate a secure random key"
+    echo "    - ANTHROPIC_API_KEY: Your Anthropic API key"
+    echo "    - OPENAI_API_KEY: Your OpenAI API key (if using OpenAI models)"
+    echo "    - POSTGRES_PASSWORD: Secure password for PostgreSQL"
+    echo "    - DRUGCENTRAL_PASSWORD: Secure password for DrugCentral database"
+    echo ""
+    echo "Once configured, start the services with:"
+    echo "  just up"
+    echo ""
+    echo "Services will be available at:"
     echo "  - FastAPI: http://localhost:8000"
     echo "  - PgWeb:   http://localhost:8081"
+    echo ""
 
 # Build Docker images
 build:
