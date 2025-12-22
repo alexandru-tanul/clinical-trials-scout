@@ -5,6 +5,7 @@ default:
 init:
     #!/usr/bin/env bash
     set -euo pipefail
+    cp -n .env.example .env
     echo "Downloading DrugCentral database dump..."
     mkdir -p data
     cd data
