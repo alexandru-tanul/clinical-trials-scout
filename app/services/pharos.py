@@ -515,7 +515,7 @@ GraphQL Query:"""
     response = completion(
         model=settings.MODEL,
         messages=[{"role": "user", "content": prompt}],
-        max_tokens=1024,
+        max_tokens=512,
     )
 
     graphql = response.choices[0].message.content.strip()

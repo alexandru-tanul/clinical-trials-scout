@@ -53,7 +53,12 @@ async def lifespan(app: FastAPI):
 
     # Startup
     await Tortoise.init(config=settings.TORTOISE_ORM)
-    await Tortoise.generate_schemas()  # Create tables if they don't exist
+    try:
+        await Tortoise.generate_schemas(safe=True)  # Create tables if they don't exist
+    except Exception as e:
+        # Log but don't fail on schema generation errors (likely already exists)
+        print(f"Schema generation warning: {e}")
+        print("Assuming tables already exist in database")
 
     # Start PostgreSQL listener
     pg_listener_task = asyncio.create_task(pg_listener())

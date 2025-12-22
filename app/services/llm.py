@@ -86,7 +86,7 @@ async def generate_response(chat: Chat) -> str:
             assistant_msg = await chat.add_assistant_message(content="", tool_calls=None)
             await notify_chat_update(chat.id)
 
-            # Call LLM with streaming enabled
+            # Call LLM with streaming enabled and token limit
             response = await acompletion(
                 model=settings.MODEL,
                 messages=llm_messages,
@@ -94,6 +94,7 @@ async def generate_response(chat: Chat) -> str:
                 tool_choice="auto",
                 stream=True,
                 timeout=60.0,
+                max_tokens=4096,
             )
 
             # Accumulate streaming response
@@ -213,6 +214,7 @@ async def generate_response(chat: Chat) -> str:
                 tool_choice="none",  # Force text response, no more tools
                 stream=True,
                 timeout=60.0,
+                max_tokens=4096,
             )
 
             content_buffer = ""

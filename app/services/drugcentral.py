@@ -540,7 +540,7 @@ SQL Query:"""
     response = completion(
         model=settings.MODEL,
         messages=[{"role": "user", "content": prompt}],
-        max_tokens=2048,
+        max_tokens=512,
     )
 
     sql = response.choices[0].message.content.strip()
