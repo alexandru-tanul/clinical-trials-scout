@@ -161,7 +161,13 @@ async def chat_updates_sse(
 
         try:
             while True:
-                await queue.get()
+                # Wait for update with timeout for keepalive
+                try:
+                    await asyncio.wait_for(queue.get(), timeout=15.0)
+                except asyncio.TimeoutError:
+                    # Send keepalive comment to keep connection alive
+                    yield ": keepalive\n\n"
+                    continue
 
                 # Build updated chat content
                 chat_history = await chat.as_openai_api_format()

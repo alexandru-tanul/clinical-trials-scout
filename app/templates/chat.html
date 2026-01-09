@@ -35,7 +35,7 @@
                                     [&_h3]:mb-2 [&_h3]:mt-4 [&_h3:first-child]:mt-0
                                     [&_pre]:mb-4 [&_pre]:p-4 [&_pre]:bg-neutral-800/70 [&_pre]:rounded-lg
                                     [&_code]:bg-neutral-800/70 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-sm
-                                    [&_table]:mb-4 [&_table]:w-auto [&_table]:border-collapse [&_table]:bg-neutral-800/50 [&_table]:rounded-lg [&_table]:overflow-hidden
+                                    [&_table]:mb-4 [&_table]:w-auto [&_table]:block [&_table]:overflow-x-auto [&_table]:border-collapse [&_table]:bg-neutral-800/50 [&_table]:rounded-lg [&_table]:[scrollbar-width:none] [&_table]:[-ms-overflow-style:none] [&_table]:[-webkit-overflow-scrolling:touch] [&_table::-webkit-scrollbar]:hidden
                                     [&_th]:bg-neutral-800/70 [&_th]:px-4 [&_th]:py-3 [&_th]:text-left [&_th]:font-medium [&_th]:text-neutral-300 [&_th]:border-b [&_th]:border-neutral-700/50
                                     [&_td]:px-4 [&_td]:py-3 [&_td]:border-b [&_td]:border-neutral-700/50
                                     [&_tr:last-child_td]:border-b-0 [&_tr:hover]:bg-neutral-700/30
@@ -60,12 +60,13 @@
                                 <div class="mt-4 space-y-2 text-sm max-w-2xl">
                                     {% for tool_call in msg.tool_calls %}
                                         {# Find if there's a corresponding tool result message #}
-                                        {% set tool_result = namespace(found=false, content='', name='') %}
+                                        {% set tool_result = namespace(found=false, content='', name='', usage=None) %}
                                         {% for result_msg in chat_history %}
                                             {% if result_msg.role == "tool" and result_msg.tool_call_id == tool_call.id %}
                                                 {% set tool_result.found = true %}
                                                 {% set tool_result.content = result_msg.content %}
                                                 {% set tool_result.name = result_msg.name %}
+                                                {% set tool_result.usage = result_msg.usage %}
                                             {% endif %}
                                         {% endfor %}
 
@@ -82,11 +83,24 @@
                                                 <summary class="flex items-center gap-2 cursor-pointer hover:text-neutral-100 select-none">
                                                     <span class="text-green-500">✓</span>
                                                     <span class="text-neutral-300">Queried {{ database }}: "{{ question }}"</span>
+                                                    {% if tool_result.usage %}
+                                                        <span class="text-neutral-500 text-xs ml-auto">{{ tool_result.usage.total_tokens }} tokens</span>
+                                                    {% endif %}
                                                 </summary>
                                                 <div class="mt-3 pl-6 space-y-2 text-neutral-400 text-xs">
+                                                    {% if tool_result.usage %}
+                                                    <div class="mb-2">
+                                                        <strong class="text-neutral-300">Token Usage:</strong>
+                                                        <div class="mt-1 text-xs">
+                                                            <div>Input: {{ tool_result.usage.prompt_tokens }} tokens</div>
+                                                            <div>Output: {{ tool_result.usage.completion_tokens }} tokens</div>
+                                                            <div>Total: {{ tool_result.usage.total_tokens }} tokens</div>
+                                                        </div>
+                                                    </div>
+                                                    {% endif %}
                                                     <div>
                                                         <strong class="text-neutral-300">Results:</strong>
-                                                        <div class="mt-1 p-2 bg-neutral-900/50 rounded overflow-x-auto max-h-64">{{ tool_result.content[:500] }}{% if tool_result.content|length > 500 %}...{% endif %}</div>
+                                                        <pre class="mt-1 p-2 bg-neutral-900/50 rounded overflow-x-auto max-h-64 whitespace-pre-wrap text-xs">{{ tool_result.content[:1000] }}{% if tool_result.content|length > 1000 %}...{% endif %}</pre>
                                                     </div>
                                                 </div>
                                             </details>

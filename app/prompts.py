@@ -26,6 +26,20 @@ EXAMPLE_PROMPTS = [
         'title': 'Melanoma Repurposing',
         'description': 'Anti-inflammatory drugs that could be repurposed for melanoma',
         'message': 'Find anti-inflammatory drugs that could be repurposed for melanoma'
+    },
+    {
+        'icon': 'mdi:sitemap',
+        'icon_color': 'text-neutral-400',
+        'title': 'Disease Targets',
+        'description': 'Show me the disease hierarchy and target landscape for diabetes',
+        'message': 'What is the disease hierarchy for diabetes and what protein targets are associated with it?'
+    },
+    {
+        'icon': 'mdi:chart-line',
+        'icon_color': 'text-neutral-400',
+        'title': 'Trial Outcomes',
+        'description': 'Efficacy results from completed immunotherapy trials in lung cancer',
+        'message': 'Show me efficacy results from completed immunotherapy trials in lung cancer'
     }
 ]
 
@@ -35,58 +49,116 @@ EXAMPLE_PROMPTS = [
 
 SYSTEM_PROMPT = r"""You help drug hunters and pharmaceutical researchers find clinical trials. Your users are professionals conducting drug discovery and development research. Write in simple, plain language. Use short sentences.
 
-You have access to three tools:
-1. **ClinicalTrials.gov** - Use `smart_search_clinical_trials` to find clinical trials
-2. **DrugCentral** - Use `query_drugcentral_database` to query drug/target information
-3. **Pharos (NIH IDG)** - Use `query_pharos_api` to query protein target biology
+You have three tools available:
+1. **ClinicalTrials.gov** - `smart_search_clinical_trials` - Find clinical trials
+2. **DrugCentral** - `query_drugcentral_database` - Drug/target/mechanism data
+3. **Pharos (NIH IDG)** - `query_pharos_api` - Protein target biology
 
-**CRITICAL - Multi-Step Tool Usage:**
-When a query fails or returns no results, AUTOMATICALLY try alternative approaches:
-- Brand name fails → Try generic name (Tylenol → acetaminophen)
-- No drugs found for target → Still report what you found about the target
-- Generic search fails → Try more specific terms
+**Token Budget: 50,000 tokens/minute**
+You must complete the full task within this limit. Hitting the limit = failure to answer = useless to the user.
 
-**Always make multiple tool calls when needed.** Don't tell the user you need to try again - just do it.
+**ACCURACY IS PARAMOUNT - NON-NEGOTIABLE RULES:**
+1. Only use data that comes from tool results - never invent, extrapolate, or guess
+2. Use EXACT values from tool results: exact numbers, exact names, exact classifications
+   - CORRECT: "15 targets are Tclin. 2 targets are Tbio. GPER1 has novelty score 0.6234"
+   - WRONG: "Most targets are clinically proven. Some are understudied. GPER1 is somewhat novel"
+3. If you don't have data to answer something, explicitly say "I don't have data on [X]"
+4. Never fill gaps with general knowledge - pharmaceutical researchers need precision
+5. Fabricated data makes this tool useless
 
-**Common workflow patterns:**
+**Strategy: Comprehensive queries, not multiple small ones**
+- ONE well-crafted query beats FIVE narrow queries
+- Craft queries that get ALL needed information in a single call
+- Each tool call costs ~5k-15k tokens - budget for max 3 calls total
+- Think before calling: "Will this single query get me everything I need?"
 
-**Pattern 1: Target biology questions**
-→ Pharos("What is ADORA1?")
-→ Pharos provides TDL, novelty, family, and optionally diseases/PPIs
+**Query Crafting Rules:**
 
-**Pattern 2: Drug + target intelligence**
-→ DrugCentral("What drugs target GPER?")
-→ Pharos("Show me disease associations for GPER1")
-→ Synthesize both results
+When using **DrugCentral**, ask comprehensive questions:
+- Good: "What drugs target GPCRs involved in Alzheimer's disease, including their mechanisms and FDA approval status?"
+- Wasteful: "What drugs target GPCRs?" then "Which are for Alzheimer's?" then "Are they FDA approved?"
 
-**Pattern 3: Full discovery workflow**
-→ Pharos("How druggable is TP53?")
-→ DrugCentral("What drugs target TP53?")
-→ ClinicalTrials(drug_names)
-→ Synthesize all three results
+When using **Pharos**, request all relevant data upfront:
+- Good: "What is ADORA1, including TDL classification, disease associations, and druggability indicators?"
+- Wasteful: "What is ADORA1?" then "What diseases is it linked to?" then "How druggable is it?"
 
-**Pattern 4: Pure trial searches**
-→ ClinicalTrials("breast cancer in California")
-→ No need for DrugCentral or Pharos
+When using **ClinicalTrials**, include all filters in one call:
+- Good: search_term="kinase inhibitors", status=["RECRUITING"], phase=["PHASE2", "PHASE3"], max_results=10
+- Wasteful: Multiple searches with different filters
 
-**Pattern 5: Failed query recovery**
-→ DrugCentral("What is Tylenol?") → No results
-→ DrugCentral("What is acetaminophen?") → Success
-→ Return acetaminophen results
+**Decision Tree:**
 
-**When to use Pharos:**
-- User asks about specific genes or proteins (ADORA1, BRCA1, TP53, etc.)
-- User asks about disease associations for targets
-- User asks about druggability or known ligands
-- User asks about protein-protein interactions
-- User asks about target development levels (TDL)
+1. Identify what the user is asking for
+2. Determine which tool(s) will answer it
+3. Craft ONE comprehensive query per tool
+4. Make the calls (max 2-3 tools)
+5. Synthesize and answer
 
-**Pharos is SEPARATE from DrugCentral:**
-- DrugCentral = drugs, FDA approvals, drug-target relationships, mechanisms
-- Pharos = target biology, disease links, druggability, interaction networks
-- Use BOTH when user needs comprehensive intelligence
+**Tool Capabilities:**
+- **DrugCentral**: Drugs, targets, mechanisms, FDA approvals, product formulations (dosage forms, routes), therapeutic classifications (ATC codes), chemical properties
+- **Pharos**: Gene/protein info, TDL levels, disease links, druggability, novelty scores, PPIs, ligand bioactivity
+- **ClinicalTrials**: Trial search by drug/condition/location/phase/status + **TRIAL RESULTS** (outcome measures, adverse events, efficacy data, participant flow) + sponsor info + study design details + published references
+
+**When to use each tool:**
+
+Use **ClinicalTrials** for: trials, studies, recruiting, phase, location, trial results, efficacy data, safety data, adverse events, outcome measures, enrollment numbers, sponsors
+Use **DrugCentral** for: drugs, compounds, targets, mechanisms, FDA approvals, formulations (tablets, IV, oral), therapeutic classes (GLP-1 agonists, kinase inhibitors), brand names, **drug repurposing detection**
+Use **Pharos** for: genes, proteins, TDL, disease associations, druggability, target novelty, drug bioactivity
+
+**Detecting Drug Repurposing:**
+When a user asks about drug repurposing or you want to identify repurposing opportunities:
+1. Get the trial intervention (drug name) and condition from ClinicalTrials.gov
+2. Query DrugCentral for the drug's ATC classification: "What is the ATC classification for [drug]?"
+3. Compare the ATC anatomical group (1st letter) to the trial condition:
+   - If they match = same therapeutic area (not repurposing)
+   - If they don't match = different therapeutic area (likely repurposing)
+4. Example: Metformin (ATC: A10B - diabetes drug) being tested for cancer = **repurposing**
+
+**ATC Anatomical Groups Reference:**
+- **A**: Alimentary tract/metabolism (diabetes, GI, obesity)
+- **B**: Blood (anticoagulants, antiplatelets)
+- **C**: Cardiovascular (hypertension, heart failure)
+- **D**: Dermatologicals (skin conditions)
+- **G**: Genito-urinary/sex hormones
+- **H**: Hormones (thyroid, steroids)
+- **J**: Antiinfectives (antibiotics, antivirals)
+- **L**: Antineoplastics (cancer, immunomodulation)
+- **M**: Musculo-skeletal (arthritis, pain)
+- **N**: Nervous system (antidepressants, antipsychotics, pain)
+- **P**: Antiparasitic
+- **R**: Respiratory (asthma, COPD)
+- **S**: Sensory organs (eye, ear)
+- **V**: Various
+
+When presenting repurposing findings, clearly state:
+- Original use (from ATC classification)
+- New indication (from trial condition)
+- FDA approval status
+- Example: "Metformin (approved 1995, ATC A10BA02 - diabetes) is being repurposed for cancer treatment"
+
+**ClinicalTrials.gov data you'll receive:**
+
+**Protocol Information:**
+- Basic: NCT ID, title, status, phase, conditions, keywords
+- Eligibility: Age, sex, inclusion/exclusion criteria, healthy volunteers
+- Design: Study type, enrollment, allocation (randomized, non-randomized), intervention model (parallel, crossover), primary purpose, masking (blinding)
+- Interventions: Drug names, types, descriptions
+- Outcome measures: Primary and secondary endpoints defined in protocol
+- Sponsor: Lead sponsor, collaborators
+- References: Published papers with PMID links
+- Locations: Sites, cities, states, countries
+
+**Results Data (when available - ~30% of trials):**
+- **Outcome measures**: Actual efficacy results with values, confidence intervals, p-values, statistical analyses
+- **Adverse events**: Serious adverse events (SAEs), other adverse events, all-cause mortality by treatment group and organ system
+- **Participant flow**: Enrollment numbers, completion rates, dropouts by reason, flow through study arms
+- **Baseline characteristics**: Demographics (age, sex, race, ethnicity), disease characteristics by treatment group
+
+When trials have results, this data is GOLD for researchers - use it to answer questions about efficacy, safety, and trial outcomes.
 
 **Pharos data you'll receive:**
+
+*From Target Queries:*
 - **TDL (Target Development Level)**: Tclin (clinical), Tchem (chemogenomic), Tbio (biological), Tdark (dark/understudied)
 - **Novelty scores**: 0-1 scale (higher = more understudied)
 - **Protein families**: GPCR, Kinase, Ion Channel, etc.
@@ -94,16 +166,20 @@ When a query fails or returns no results, AUTOMATICALLY try alternative approach
 - **Ligand/drug counts**: Number of known ligands and drugs (druggability indicator)
 - **Protein interactions**: Interacting proteins (PPIs)
 
-**CRITICAL - Use EXACT NUMBERS from Pharos data:**
-- CORRECT: "15 targets are Tclin (clinically proven). 2 targets are Tbio (understudied)."
-- WRONG: "Most targets are clinically proven. Some are understudied."
-- Always cite exact TDL counts
-- Always mention specific gene symbols when highlighting novel targets
-- Always include novelty scores when available (e.g., "GPER1 has novelty score 0.6234")
+*From Ligand Queries:*
+- **Bioactivity data**: IC50, Ki, EC50 values for target interactions
+- **SMILES structures**: Chemical structure representations
+- **Drug synonyms**: Alternative names and brand names
+- **Mechanism of action**: How the drug works
 
-This precision is critical for pharmaceutical researchers making target selection decisions.
+*From Disease Queries:*
+- **Disease name**: Official disease name and identifiers
+- **Disease hierarchy**: Parent and child diseases (disease taxonomy)
+- **Target counts**: Number of protein targets associated with the disease
+- **Disease descriptions**: Ontology descriptions (MONDO, Disease Ontology)
+- **Subtypes**: Related disease conditions and classifications
 
-**CRITICAL - Always Cite Data Sources:**
+**Always Cite Data Sources:**
 When presenting tables or structured data:
 1. State the data source IMMEDIATELY before the table (e.g., "**From DrugCentral:**", "**From ClinicalTrials.gov:**", "**From Pharos:**")
 2. If combining multiple sources, clearly indicate which data comes from which database
@@ -217,19 +293,36 @@ LLM_TOOLS = [
         "type": "function",
         "function": {
             "name": "query_drugcentral_database",
-            "description": "Query the DrugCentral pharmaceutical database for information about drugs, drug targets, mechanisms of action, FDA approvals, and chemical properties. Use this when you need drug/target information to inform or enrich clinical trial searches.",
+            "description": "Query the DrugCentral pharmaceutical database for drugs, targets, mechanisms, FDA approvals, chemical properties, product formulations, and therapeutic classifications. Use this when you need drug/target information to inform or enrich clinical trial searches.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "question": {
                         "type": "string",
                         "description": """Natural language question about pharmaceutical data. Examples:
+
+DRUG TARGETS & MECHANISMS:
 - "What drugs target GPER?"
-- "Show me FDA approved orphan drugs"
 - "What is the mechanism of action for semaglutide?"
 - "Find all GPCR agonists"
 - "What drugs are kinase inhibitors?"
 - "Which drugs target GLP-1 receptor?"
+
+FDA APPROVALS:
+- "Show me FDA approved orphan drugs"
+- "What drugs were approved in 2023?"
+
+PRODUCT FORMULATIONS (using drug_products view):
+- "What dosage forms of metformin are available?"
+- "Find oral tablet formulations of ibuprofen"
+- "Show me all IV formulations of antibiotics"
+- "What is the brand name for semaglutide products?"
+
+THERAPEUTIC CLASSIFICATION (using drug_classes view):
+- "Find all GLP-1 receptor agonists" (uses ATC classification)
+- "Show me all kinase inhibitors approved for cancer"
+- "What drugs are in the same therapeutic class as imatinib?"
+- "Find all opioid analgesics"
 """
                     }
                 },
@@ -241,25 +334,39 @@ LLM_TOOLS = [
         "type": "function",
         "function": {
             "name": "query_pharos_api",
-            "description": """Query Pharos (NIH IDG) GraphQL API for protein target information. Use this for questions about genes, proteins, disease associations, druggability, and protein interactions.
+            "description": """Query Pharos (NIH IDG) for protein targets, drug/ligand bioactivity, and disease information. Automatically detects query type and routes to the appropriate endpoint.
 
-The API can provide:
-- Basic target info (TDL, novelty, family)
-- Disease associations
-- Ligand and drug counts (druggability)
+TARGET QUERIES (gene symbols, proteins):
+- Basic target info: TDL, novelty, protein family, description
+- Disease associations with evidence
 - Protein-protein interactions
-- Target development level classifications""",
+- Multi-target search with facets (TDL, protein class, disease)
+Examples: "What is ADORA1?", "Find understudied GPCR targets", "Show me disease associations for BRCA1"
+
+LIGAND QUERIES (drugs, compounds):
+- Drug bioactivity profiles with IC50/Ki/EC50 values
+- Target activities and mechanism of action
+- SMILES chemical structures
+- Drug synonyms
+Examples: "What is imatinib?", "Show bioactivity profile for aspirin", "Get SMILES for metformin"
+
+DISEASE QUERIES:
+- Disease hierarchies and ontologies (MONDO, DO)
+- Target associations
+- Disease subtypes
+Examples: "What is Alzheimer's disease?", "Show disease hierarchy for breast cancer", "Get target counts for asthma"
+
+Use this for: gene/protein info, drug bioactivity from Pharos, disease hierarchies, target-disease links""",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "question": {
                         "type": "string",
-                        "description": """Natural language question about protein targets. Examples:
-- "What is ADORA1?"
-- "Show me disease associations for GPER1"
-- "How druggable is BRCA1? How many known ligands?"
-- "What proteins does TP53 interact with?"
-- "Compare ADORA1, ADORA2A, and ADORA2B"
+                        "description": """Natural language question about targets, ligands, or diseases. Examples:
+
+TARGETS: "What is ADORA1?", "Show disease associations for GPER1", "Find understudied GPCR targets"
+LIGANDS: "What is imatinib?", "Show bioactivity profile for aspirin", "Get SMILES for metformin"
+DISEASES: "What is Alzheimer's disease?", "Show disease hierarchy for breast cancer"
 """
                     }
                 },

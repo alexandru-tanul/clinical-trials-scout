@@ -14,10 +14,10 @@ from app.services.drugcentral import query_drugcentral_database
 from app.services.pharos import query_pharos_api
 
 
-async def execute_tool(tool_name: str, arguments: dict) -> str:
+async def execute_tool(tool_name: str, arguments: dict) -> tuple[str, dict | None]:
     """Execute a tool by name with given arguments.
 
-    Returns the tool result as a string.
+    Returns tuple of (tool result string, token usage dict).
     """
     if tool_name == "smart_search_clinical_trials":
         results = await smart_search_clinical_trials(
@@ -27,7 +27,7 @@ async def execute_tool(tool_name: str, arguments: dict) -> str:
             phase=arguments.get('phase'),
             max_results=arguments.get('max_results', 5)
         )
-        return json.dumps(results, indent=2)
+        return json.dumps(results, indent=2), None
 
     elif tool_name == "query_drugcentral_database":
         question = arguments.get('question', '')
@@ -48,7 +48,7 @@ async def execute_tool(tool_name: str, arguments: dict) -> str:
             phase=arguments.get('phase'),
             max_results=arguments.get('max_results', 5)
         )
-        return json.dumps(results, indent=2)
+        return json.dumps(results, indent=2), None
 
     else:
         raise ValueError(f"Unknown tool: {tool_name}")
@@ -176,14 +176,17 @@ async def generate_response(chat: Chat) -> str:
                 print(f"[DEBUG] {tool_call['function']['name']} called with: {args}")
 
                 # Execute the tool
-                result = await execute_tool(tool_call["function"]["name"], args)
+                result, usage = await execute_tool(tool_call["function"]["name"], args)
                 print(f"[DEBUG] {tool_call['function']['name']} returned {len(result)} characters")
+                if usage:
+                    print(f"[DEBUG] Token usage: {usage['total_tokens']} total ({usage['prompt_tokens']} prompt + {usage['completion_tokens']} completion)")
 
                 # Save tool result message to database
                 await chat.add_tool_message(
                     tool_call_id=tool_call["id"],
                     content=result,
-                    name=tool_call["function"]["name"]
+                    name=tool_call["function"]["name"],
+                    usage=usage
                 )
 
                 # Add to LLM conversation

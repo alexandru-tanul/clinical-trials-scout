@@ -77,27 +77,43 @@ async def search_clinical_trials(
             trials = []
             for study in data.get("studies", []):
                 protocol_section = study.get("protocolSection", {})
+                results_section = study.get("resultsSection", {})
+
+                # Protocol Section Modules
                 identification_module = protocol_section.get("identificationModule", {})
                 status_module = protocol_section.get("statusModule", {})
                 description_module = protocol_section.get("descriptionModule", {})
                 conditions_module = protocol_section.get("conditionsModule", {})
                 design_module = protocol_section.get("designModule", {})
                 eligibility_module = protocol_section.get("eligibilityModule", {})
-                contacts_module = protocol_section.get("contactsModule", {})
+                contacts_module = protocol_section.get("contactsLocationsModule", {})
+                sponsor_module = protocol_section.get("sponsorCollaboratorsModule", {})
+                outcomes_module = protocol_section.get("outcomesModule", {})
+                arms_interventions_module = protocol_section.get("armsInterventionsModule", {})
 
+                # Results Section Modules (when available)
+                outcome_measures_module = results_section.get("outcomeMeasuresModule", {})
+                adverse_events_module = results_section.get("adverseEventsModule", {})
+                participant_flow_module = results_section.get("participantFlowModule", {})
+                baseline_module = results_section.get("baselineCharacteristicsModule", {})
+
+                # Build trial info dictionary
                 trial_info = {
                     "nct_id": identification_module.get("nctId"),
                     "title": identification_module.get("officialTitle") or identification_module.get("briefTitle"),
                     "status": status_module.get("overallStatus"),
                     "phase": design_module.get("phases", []),
                     "brief_summary": description_module.get("briefSummary"),
+                    # Skip detailed_description to save tokens (brief_summary is sufficient)
                     "conditions": conditions_module.get("conditions", []),
+                    "keywords": conditions_module.get("keywords", []),
                     "interventions": [
                         {
                             "type": intervention.get("type"),
                             "name": intervention.get("name"),
+                            # Skip description to save tokens (name + type is sufficient)
                         }
-                        for intervention in protocol_section.get("armsInterventionsModule", {}).get("interventions", [])
+                        for intervention in arms_interventions_module.get("interventions", [])
                     ],
                     "eligibility": {
                         "criteria": eligibility_module.get("eligibilityCriteria"),
@@ -106,6 +122,7 @@ async def search_clinical_trials(
                         "max_age": eligibility_module.get("maximumAge"),
                         "healthy_volunteers": eligibility_module.get("healthyVolunteers"),
                     },
+                    # Limit locations to first 5 to save tokens
                     "locations": [
                         {
                             "facility": location.get("facility"),
@@ -113,12 +130,171 @@ async def search_clinical_trials(
                             "state": location.get("state"),
                             "country": location.get("country"),
                         }
-                        for location in contacts_module.get("locations", [])
+                        for location in contacts_module.get("locations", [])[:5]
                     ],
                     "url": f"https://clinicaltrials.gov/study/{identification_module.get('nctId')}",
                     "start_date": status_module.get("startDateStruct", {}).get("date"),
                     "completion_date": status_module.get("completionDateStruct", {}).get("date"),
+
+                    # NEW: Sponsor information
+                    "sponsor": {
+                        "lead_sponsor": sponsor_module.get("leadSponsor", {}).get("name"),
+                        "collaborators": [c.get("name") for c in sponsor_module.get("collaborators", [])],
+                    },
+
+                    # NEW: Study design details
+                    "design": {
+                        "study_type": design_module.get("studyType"),
+                        "enrollment": design_module.get("enrollmentInfo", {}).get("count"),
+                        "allocation": design_module.get("designInfo", {}).get("allocation"),
+                        "intervention_model": design_module.get("designInfo", {}).get("interventionModel"),
+                        "primary_purpose": design_module.get("designInfo", {}).get("primaryPurpose"),
+                        "masking": design_module.get("designInfo", {}).get("maskingInfo", {}).get("masking"),
+                    },
+
+                    # NEW: Outcome measures (from protocol)
+                    "outcome_measures": {
+                        "primary": [
+                            {
+                                "measure": om.get("measure"),
+                                "description": om.get("description"),
+                                "time_frame": om.get("timeFrame"),
+                            }
+                            for om in outcomes_module.get("primaryOutcomes", [])
+                        ],
+                        "secondary": [
+                            {
+                                "measure": om.get("measure"),
+                                "description": om.get("description"),
+                                "time_frame": om.get("timeFrame"),
+                            }
+                            for om in outcomes_module.get("secondaryOutcomes", [])
+                        ],
+                    },
+
+                    # NEW: Results data (when available)
+                    "has_results": bool(results_section),
+                    "results": None,
                 }
+
+                # Extract results if available (simplified to reduce token usage)
+                if results_section:
+                    # Extract enrollment summary from participant flow
+                    enrollment_summary = None
+                    if participant_flow_module:
+                        groups = participant_flow_module.get("groups", [])
+                        periods = participant_flow_module.get("periods", [])
+
+                        # Get enrollment numbers from first milestone (STARTED)
+                        enrollment_data = {}
+                        if periods and len(periods) > 0:
+                            first_period = periods[0]
+                            milestones = first_period.get("milestones", [])
+                            for milestone in milestones:
+                                if milestone.get("type") == "STARTED":
+                                    for achievement in milestone.get("achievements", []):
+                                        group_id = achievement.get("groupId")
+                                        num_subjects = achievement.get("numSubjects")
+                                        # Find group title
+                                        group_title = next((g.get("title") for g in groups if g.get("id") == group_id), group_id)
+                                        enrollment_data[group_title] = num_subjects
+
+                        enrollment_summary = {
+                            "recruitment_details": participant_flow_module.get("recruitmentDetails"),
+                            "enrollment_by_group": enrollment_data
+                        }
+
+                    # Extract key baseline demographics only
+                    baseline_summary = None
+                    if baseline_module:
+                        measures = baseline_module.get("measures", [])
+                        demographics = {}
+
+                        # Extract only age, sex, race, ethnicity (first 4 measures typically)
+                        for measure in measures[:4]:
+                            title = measure.get("title", "")
+                            if any(keyword in title.lower() for keyword in ["age", "sex", "gender", "race", "ethnicity"]):
+                                demographics[title] = {
+                                    "param_type": measure.get("paramType"),
+                                    "unit": measure.get("unitOfMeasure")
+                                }
+
+                        baseline_summary = {
+                            "population_description": baseline_module.get("populationDescription"),
+                            "key_demographics": list(demographics.keys())
+                        }
+
+                    # Simplified outcome measures - just key results
+                    outcomes_summary = []
+                    for om in outcome_measures_module.get("outcomeMeasures", [])[:10]:  # Limit to first 10
+                        outcome = {
+                            "type": om.get("type"),
+                            "title": om.get("title"),
+                            "time_frame": om.get("timeFrame"),
+                            "param_type": om.get("paramType"),
+                            "unit": om.get("unitOfMeasure"),
+                        }
+
+                        # Extract first statistical analysis if available
+                        analyses = om.get("analyses", [])
+                        if analyses:
+                            first_analysis = analyses[0]
+                            outcome["analysis"] = {
+                                "p_value": first_analysis.get("pValue"),
+                                "statistical_method": first_analysis.get("statisticalMethod"),
+                                "param_value": first_analysis.get("paramValue"),
+                                "ci_lower": first_analysis.get("ciLowerLimit"),
+                                "ci_upper": first_analysis.get("ciUpperLimit"),
+                            }
+
+                        outcomes_summary.append(outcome)
+
+                    # Simplified adverse events - counts and top events
+                    adverse_events_summary = None
+                    if adverse_events_module:
+                        groups = adverse_events_module.get("eventGroups", [])
+                        serious_events = adverse_events_module.get("seriousEvents", [])
+                        other_events = adverse_events_module.get("otherEvents", [])
+
+                        # Summary counts
+                        group_summaries = []
+                        for g in groups:
+                            group_summaries.append({
+                                "group": g.get("title"),
+                                "deaths": g.get("deathsNumAffected"),
+                                "serious_events": g.get("seriousNumAffected"),
+                                "other_events": g.get("otherNumAffected"),
+                            })
+
+                        # Top 5 serious events only
+                        top_serious = []
+                        for se in serious_events[:5]:
+                            event = {
+                                "term": se.get("term"),
+                                "organ_system": se.get("organSystem"),
+                            }
+                            # Get total affected across all groups
+                            stats = se.get("stats", [])
+                            if stats:
+                                total_affected = sum(s.get("numAffected", 0) for s in stats)
+                                event["total_affected"] = total_affected
+                            top_serious.append(event)
+
+                        adverse_events_summary = {
+                            "time_frame": adverse_events_module.get("timeFrame"),
+                            "group_summaries": group_summaries,
+                            "top_serious_events": top_serious,
+                            "total_serious_events": len(serious_events),
+                            "total_other_events": len(other_events),
+                        }
+
+                    trial_info["results"] = {
+                        "enrollment": enrollment_summary,
+                        "baseline": baseline_summary,
+                        "outcome_measures": outcomes_summary,
+                        "adverse_events": adverse_events_summary,
+                    }
+
                 trials.append(trial_info)
 
             return {

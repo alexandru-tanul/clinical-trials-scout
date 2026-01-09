@@ -87,15 +87,8 @@ class Settings(BaseSettings):
 
     # LLM Configuration (using LiteLLM)
     # --------------------
-    MODEL: str = "claude-haiku-4-5"  # For tool calling (search decision)
-    SYNTHESIS_MODEL: str = "claude-haiku-4-5"  # For result synthesis (supports thinking)
-
-    # Extended Thinking Mode (for Claude models that support it)
-    # Supported models: claude-sonnet-4-5, claude-opus-4-5, etc.
-    # --------------------
-    ENABLE_THINKING: bool = False  # Set to True to enable extended thinking
-    THINKING_BUDGET_TOKENS: int = 10000  # Tokens Claude can use for thinking (1024-32000)
-    SHOW_THINKING: bool = True  # Show thinking content to users
+    MODEL: str = "gemini/gemini-3-flash-preview"  # For tool calling and response generation
+    GEMINI_API_KEY: str = ""  # Set in .env
 
     # Session
     # --------------------

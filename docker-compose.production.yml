@@ -19,11 +19,6 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       # LLM Configuration
       MODEL: ${MODEL:-claude-haiku-4-5}
-      SYNTHESIS_MODEL: ${SYNTHESIS_MODEL:-claude-haiku-4-5}
-      # Extended Thinking
-      ENABLE_THINKING: ${ENABLE_THINKING:-False}
-      THINKING_BUDGET_TOKENS: ${THINKING_BUDGET_TOKENS:-10000}
-      SHOW_THINKING: ${SHOW_THINKING:-True}
       # App Settings
       SECRET_KEY: ${SECRET_KEY}
       DEBUG: ${DEBUG:-False}

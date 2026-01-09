@@ -62,9 +62,7 @@ Put these in `.env`:
 
 ## Optional env variables
 
-- `MODEL` - Which model to use for tool calling (default: `claude-haiku-4-5`)
-- `SYNTHESIS_MODEL` - Which model to use for synthesis (default: `claude-haiku-4-5`)
-- `ENABLE_THINKING` - Enable extended thinking for Claude models (default: `False`)
+- `MODEL` - Which model to use (default: `claude-haiku-4-5`)
 - `DEBUG` - Turn on debug mode (default: `True`)
 
 ## Example queries

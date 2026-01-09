@@ -35,14 +35,15 @@ class Chat(Model):
             tool_calls=tool_calls
         )
 
-    async def add_tool_message(self, tool_call_id: str, content: str, name: str | None = None) -> "Message":
+    async def add_tool_message(self, tool_call_id: str, content: str, name: str | None = None, usage: dict | None = None) -> "Message":
         """Add a tool response message to this chat."""
         return await Message.create(
             chat=self,
             role="tool",
             tool_call_id=tool_call_id,
             content=content,
-            name=name
+            name=name,
+            usage=usage
         )
 
     async def as_openai_api_format(self) -> list[dict]:
@@ -81,6 +82,9 @@ class Message(Model):
     # For tool response messages (role="tool")
     tool_call_id = fields.CharField(max_length=100, null=True)  # Links to tool_calls[].id
     name = fields.CharField(max_length=100, null=True)  # Function name
+
+    # Token usage (from LLM API response.usage)
+    usage = fields.JSONField(null=True)  # {"prompt_tokens": int, "completion_tokens": int, "total_tokens": int}
 
     created_at = fields.DatetimeField(auto_now_add=True)
 
