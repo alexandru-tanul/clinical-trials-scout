@@ -53,3 +53,11 @@ up:
 # Stop services
 down:
     docker compose down
+
+# Create a new migration (like Django's makemigrations)
+makemigrations name:
+    docker compose exec fastapi aerich migrate --name {{name}}
+
+# Apply all pending migrations (like Django's migrate)
+migrate:
+    docker compose exec fastapi sh -c "aerich upgrade 2>/dev/null || (aerich init-db && aerich upgrade)"
