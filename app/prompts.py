@@ -21,11 +21,11 @@ EXAMPLE_PROMPTS = [
         'message': 'Show me understudied protein targets with known bioactivity data'
     },
     {
-        'icon': 'mdi:hospital-box',
+        'icon': 'mdi:pill',
         'icon_color': 'text-neutral-400',
-        'title': 'Melanoma Repurposing',
-        'description': 'Anti-inflammatory drugs that could be repurposed for melanoma',
-        'message': 'Find anti-inflammatory drugs that could be repurposed for melanoma'
+        'title': 'Drug Mechanism',
+        'description': 'Bioactivity profile and targets for semaglutide',
+        'message': 'What is the bioactivity profile and target information for semaglutide?'
     },
     {
         'icon': 'mdi:sitemap',
