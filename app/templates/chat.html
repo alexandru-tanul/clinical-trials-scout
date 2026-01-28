@@ -100,7 +100,18 @@
                                                     {% endif %}
                                                     <div>
                                                         <strong class="text-neutral-300">Results:</strong>
-                                                        <pre class="mt-1 p-2 bg-neutral-900/50 rounded overflow-x-auto max-h-64 whitespace-pre-wrap text-xs">{{ tool_result.content[:1000] }}{% if tool_result.content|length > 1000 %}...{% endif %}</pre>
+                                                        <pre id="result-{{ tool_call.id }}" class="mt-1 p-2 bg-neutral-900/50 rounded overflow-x-auto max-h-64 whitespace-pre-wrap text-xs">{{ tool_result.content[:1000] }}{% if tool_result.content|length > 1000 %}...{% endif %}</pre>
+                                                        {% if tool_result.content|length > 1000 %}
+                                                        <button
+                                                            hx-get="/tool-results/{{ tool_call.id }}"
+                                                            hx-target="#tool-results-modal-content"
+                                                            hx-swap="innerHTML"
+                                                            hx-trigger="click"
+                                                            onclick='document.getElementById("tool-results-modal").showModal()'
+                                                            class="mt-2 text-xs text-blue-400 hover:text-blue-300 underline">
+                                                            View full results ({{ (tool_result.content|length) }} chars)
+                                                        </button>
+                                                        {% endif %}
                                                     </div>
                                                 </div>
                                             </details>
@@ -148,4 +159,16 @@
             </div>
         </div>
     </div>
+
+    {# Tool results modal #}
+    <dialog id="tool-results-modal" class="rounded-xl shadow-2xl bg-neutral-800 text-neutral-100 p-0 w-full max-w-4xl backdrop:bg-black/50" style="margin: auto;">
+        <div class="flex items-center justify-between p-4 border-b border-neutral-700">
+            <h3 class="text-lg font-semibold">Full Tool Results</h3>
+            <button onclick='document.getElementById("tool-results-modal").close()' class="text-neutral-400 hover:text-white text-2xl leading-none">&times;</button>
+        </div>
+        <div id="tool-results-modal-content" class="p-4">
+            <div class="text-center text-neutral-500 text-sm">Loading...</div>
+        </div>
+    </dialog>
+
 {% endblock %}

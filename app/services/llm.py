@@ -9,7 +9,12 @@ from app.config import settings
 from app.models import Chat, Message
 from app.prompts import SYSTEM_PROMPT, LLM_TOOLS
 from app.services.sse import notify_chat_update
-from app.services.clinical_trials import smart_search_clinical_trials, search_clinical_trials
+from app.services.clinical_trials import (
+    smart_search_clinical_trials,
+    search_clinical_trials,
+    search_clinical_trials_by_investigator,
+    analyze_endpoints_across_trials,
+)
 from app.services.drugcentral import query_drugcentral_database
 from app.services.pharos import query_pharos_api
 
@@ -20,13 +25,46 @@ async def execute_tool(tool_name: str, arguments: dict) -> tuple[str, dict | Non
     Returns tuple of (tool result string, token usage dict).
     """
     if tool_name == "smart_search_clinical_trials":
-        results = await smart_search_clinical_trials(
-            search_term=arguments.get('search_term', ''),
-            location=arguments.get('location'),
-            status=arguments.get('status'),
-            phase=arguments.get('phase'),
-            max_results=arguments.get('max_results', 5)
-        )
+        # Check if this is an investigator search
+        investigator = arguments.get('investigator')
+        if investigator:
+            # Use dedicated investigator search function
+            results = await search_clinical_trials_by_investigator(
+                investigator_name=investigator,
+                condition=arguments.get('search_term'),
+                location=arguments.get('location'),
+                status=arguments.get('status'),
+                phase=arguments.get('phase'),
+                max_results=arguments.get('max_results', 20)
+            )
+        else:
+            # Use standard smart search
+            # If sponsor or outcome is specified, use direct search_clinical_trials with those parameters
+            # Otherwise use smart_search for multi-strategy search
+            sponsor = arguments.get('sponsor')
+            outcome = arguments.get('outcome')
+
+            if sponsor or outcome:
+                # Direct search with specific parameters
+                from app.services.clinical_trials import search_clinical_trials
+                results = await search_clinical_trials(
+                    query=arguments.get('search_term', ''),
+                    location=arguments.get('location'),
+                    status=arguments.get('status'),
+                    phase=arguments.get('phase'),
+                    sponsor=sponsor,
+                    outcome=outcome,
+                    max_results=arguments.get('max_results', 5)
+                )
+            else:
+                # Multi-strategy smart search
+                results = await smart_search_clinical_trials(
+                    search_term=arguments.get('search_term', ''),
+                    location=arguments.get('location'),
+                    status=arguments.get('status'),
+                    phase=arguments.get('phase'),
+                    max_results=arguments.get('max_results', 5)
+                )
         return json.dumps(results, indent=2), None
 
     elif tool_name == "query_drugcentral_database":
@@ -46,6 +84,8 @@ async def execute_tool(tool_name: str, arguments: dict) -> tuple[str, dict | Non
             location=arguments.get('location'),
             status=arguments.get('status'),
             phase=arguments.get('phase'),
+            sponsor=arguments.get('sponsor'),
+            outcome=arguments.get('outcome'),
             max_results=arguments.get('max_results', 5)
         )
         return json.dumps(results, indent=2), None

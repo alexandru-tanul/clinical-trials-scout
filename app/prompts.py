@@ -97,11 +97,14 @@ When using **ClinicalTrials**, include all filters in one call:
 **Tool Capabilities:**
 - **DrugCentral**: Drugs, targets, mechanisms, FDA approvals, product formulations (dosage forms, routes), therapeutic classifications (ATC codes), chemical properties
 - **Pharos**: Gene/protein info, TDL levels, disease links, druggability, novelty scores, PPIs, ligand bioactivity
-- **ClinicalTrials**: Trial search by drug/condition/location/phase/status + **TRIAL RESULTS** (outcome measures, adverse events, efficacy data, participant flow) + sponsor info + study design details + published references
+- **ClinicalTrials**: Trial search by drug/condition/location/phase/status/sponsor/outcome/investigator + **TRIAL RESULTS** (outcome measures, adverse events, efficacy data, participant flow) + sponsor info + study design details + published references
 
 **When to use each tool:**
 
 Use **ClinicalTrials** for: trials, studies, recruiting, phase, location, trial results, efficacy data, safety data, adverse events, outcome measures, enrollment numbers, sponsors
+- **Sponsor search**: Find trials by company or institution (e.g., sponsor="Pfizer" for competitive intelligence)
+- **Investigator search**: Find trials by principal investigator name (e.g., investigator="Smith" for site selection)
+- **Outcome search**: Find trials by endpoint measure (e.g., outcome="overall survival" for protocol design)
 Use **DrugCentral** for: drugs, compounds, targets, mechanisms, FDA approvals, formulations (tablets, IV, oral), therapeutic classes (GLP-1 agonists, kinase inhibitors), brand names, **drug repurposing detection**
 Use **Pharos** for: genes, proteins, TDL, disease associations, druggability, target novelty, drug bioactivity
 
@@ -258,7 +261,7 @@ LLM_TOOLS = [
         "type": "function",
         "function": {
             "name": "smart_search_clinical_trials",
-            "description": "Search for clinical trials from ClinicalTrials.gov. Just provide the search term - the system automatically tries multiple search strategies to find the best results. Works for drug names, conditions, molecular targets, protein names, or any other search term.",
+            "description": "Search for clinical trials from ClinicalTrials.gov. Just provide the search term - the system automatically tries multiple search strategies to find the best results. Works for drug names, conditions, molecular targets, protein names, or any other search term. Also supports sponsor search, outcome/endpoint search, and investigator search.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -279,6 +282,18 @@ LLM_TOOLS = [
                         "type": "array",
                         "items": {"type": "string"},
                         "description": "Optional: Trial phase. Options: PHASE1, PHASE2, PHASE3, PHASE4, EARLY_PHASE1, NA"
+                    },
+                    "sponsor": {
+                        "type": "string",
+                        "description": "Optional: Search by sponsor/collaborator name for competitive intelligence (e.g., 'Pfizer', 'NIH', 'Novartis', 'Mayo Clinic')"
+                    },
+                    "outcome": {
+                        "type": "string",
+                        "description": "Optional: Search by outcome measure for protocol design benchmarking (e.g., 'overall survival', 'HbA1c', 'response rate', 'progression-free survival')"
+                    },
+                    "investigator": {
+                        "type": "string",
+                        "description": "Optional: Search by principal investigator name for site selection (e.g., 'Smith', 'Johnson', 'Dr. Maria Garcia'). Uses client-side filtering with broader search results."
                     },
                     "max_results": {
                         "type": "integer",

@@ -29,6 +29,7 @@ templates.env.cache_size = 0 if settings.DEBUG else 400
 
 # Jinja filters
 templates.env.filters['from_json'] = json.loads
+templates.env.filters['tojson'] = json.dumps
 
 
 def md(text: str | None) -> str:
@@ -251,3 +252,42 @@ async def delete_chat(
         return response
     else:
         return Response(status_code=200, headers={"HX-Trigger": "refreshChats"})
+
+
+@app.get("/tool-results/{tool_call_id}")
+async def get_tool_results(
+    request: Request,
+    tool_call_id: str,
+    session_key: str = Depends(get_session_key)
+):
+    """Get full tool results for display."""
+    # Find the tool result message
+    messages = await Message.filter(tool_call_id=tool_call_id).limit(1)
+    if not messages:
+        return Response("Tool result not found", status_code=404)
+
+    tool_msg = messages[0]
+    chat = await Chat.get_or_none(id=tool_msg.chat_id, session_key=session_key)
+    if not chat:
+        return Response("Chat not found", status_code=404)
+
+    # Get all messages for the chat to find the tool result
+    chat_history = await chat.as_openai_api_format()
+
+    # Find the specific tool result
+    tool_result_content = None
+    for msg in chat_history:
+        if msg.get("role") == "tool" and msg.get("tool_call_id") == tool_call_id:
+            tool_result_content = msg.get("content")
+            break
+
+    if not tool_result_content:
+        return Response("Tool result content not found", status_code=404)
+
+    return templates.TemplateResponse(
+        request,
+        "partials/tool_results.html",
+        {
+            "content": tool_result_content
+        }
+    )

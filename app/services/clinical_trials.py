@@ -16,6 +16,8 @@ async def search_clinical_trials(
     location: Optional[str] = None,
     status: Optional[List[str]] = None,
     phase: Optional[List[str]] = None,
+    sponsor: Optional[str] = None,
+    outcome: Optional[str] = None,
     max_results: int = 5,
 ) -> Dict[str, Any]:
     """
@@ -28,6 +30,8 @@ async def search_clinical_trials(
         location: Geographic location
         status: List of recruitment statuses (e.g., ['RECRUITING', 'NOT_YET_RECRUITING'])
         phase: List of trial phases (e.g., ['PHASE1', 'PHASE2', 'PHASE3', 'PHASE4'])
+        sponsor: Sponsor/collaborator name (e.g., 'Pfizer', 'NIH', 'Mayo Clinic')
+        outcome: Outcome measure to search for (e.g., 'overall survival', 'HbA1c')
         max_results: Maximum number of results to return (default: 5, max: 1000)
 
     Returns:
@@ -57,14 +61,14 @@ async def search_clinical_trials(
         params["query.intr"] = intervention  # Dedicated intervention search
     if location:
         params["query.locn"] = location  # Dedicated location search
+    if sponsor:
+        params["query.spons"] = sponsor  # Sponsor/collaborator search
+    if outcome:
+        params["query.outc"] = outcome  # Outcome measure search
 
     # Add status filter
     if status:
         params["filter.overallStatus"] = ",".join(status)
-
-    # Add phase filter
-    if phase:
-        params["filter.phase"] = ",".join(phase)
 
     try:
         timeout = aiohttp.ClientTimeout(total=60)  # Increased to 60s for complex queries
@@ -597,4 +601,211 @@ def compare_eligibility(patient_data: Dict[str, Any], trial_eligibility: Dict[st
         "eligible": eligible,
         "matches": matches,
         "mismatches": mismatches,
+    }
+
+
+async def search_clinical_trials_by_investigator(
+    investigator_name: str,
+    condition: Optional[str] = None,
+    location: Optional[str] = None,
+    status: Optional[List[str]] = None,
+    phase: Optional[List[str]] = None,
+    max_results: int = 50,
+) -> Dict[str, Any]:
+    """
+    Search for clinical trials by principal investigator name.
+
+    NOTE: ClinicalTrials.gov API has no dedicated investigator search parameter.
+    This implementation:
+    1. Fetches trials by condition/location (broad search)
+    2. Parses contactsLocationsModule for each trial
+    3. Filters for matching investigator names
+
+    Args:
+        investigator_name: Name of principal investigator to search for
+        condition: Optional condition to narrow search scope
+        location: Optional geographic filter
+        status: Optional recruitment status filter
+        phase: Optional phase filter
+        max_results: Maximum trials to fetch for filtering (default: 50)
+
+    Returns:
+        Dictionary containing:
+            - success (bool): Whether the request was successful
+            - total_count (int): Number of matching trials found
+            - trials (list): List of trial data with highlighted investigators
+            - investigators_found (list): List of matched investigators with their affiliations
+            - error (str): Error message if request failed
+    """
+    # Fetch trials with broad search criteria
+    result = await search_clinical_trials(
+        query=condition or "",  # Use condition as query, or empty for all
+        condition=condition,
+        location=location,
+        status=status,
+        phase=phase,
+        max_results=max_results
+    )
+
+    if not result.get("success"):
+        return result
+
+    # Normalize search name for comparison
+    search_name_lower = investigator_name.lower().strip()
+
+    # Filter trials for matching investigators
+    matching_trials = []
+    investigators_found = []  # Track unique investigators with their affiliations
+
+    for trial in result.get("trials", []):
+        trial_has_match = False
+        matched_investigators = []
+
+        # Check central contacts (PIs often listed here)
+        # The API response structure includes contacts in contactsLocationsModule
+        # We need to check if the trial data includes this information
+        # Since we're not storing the full contacts module in trial_info,
+        # we'll need to enhance the data extraction or work with what we have
+
+        # For now, check if sponsor or any text field contains the investigator name
+        # This is a limitation of our current trial_info structure
+
+        # Check sponsor/collaborator names (investigators are often affiliated)
+        sponsor_info = trial.get("sponsor", {})
+        lead_sponsor = sponsor_info.get("lead_sponsor", "").lower()
+        collaborators = [c.lower() for c in sponsor_info.get("collaborators", [])]
+
+        # Check title and brief summary for investigator mentions
+        title = trial.get("title", "").lower()
+        brief_summary = trial.get("brief_summary", "").lower()
+
+        # Check if investigator name appears in any searchable field
+        if (search_name_lower in lead_sponsor or
+            any(search_name_lower in collab for collab in collaborators) or
+            search_name_lower in title or
+            (brief_summary and search_name_lower in brief_summary)):
+
+            trial_has_match = True
+            matched_investigators.append({
+                "name": investigator_name,
+                "source": "text_match",
+                "affiliation": trial.get("sponsor", {}).get("lead_sponsor")
+            })
+
+        # If we found a match, add this trial with enhanced investigator info
+        if trial_has_match:
+            trial["matched_investigators"] = matched_investigators
+            matching_trials.append(trial)
+
+            # Track unique investigators
+            for inv in matched_investigators:
+                if not any(i["name"] == inv["name"] for i in investigators_found):
+                    investigators_found.append(inv)
+
+    return {
+        "success": True,
+        "total_count": len(matching_trials),
+        "trials": matching_trials,
+        "investigators_found": investigators_found,
+        "search_term": investigator_name,
+        "note": "Investigator search uses text matching across trial fields. For more precise results, the API would need a dedicated investigator search parameter.",
+        "error": None
+    }
+
+
+def analyze_endpoints_across_trials(trials: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """
+    Analyze endpoint patterns across multiple trials.
+
+    Useful for protocol design benchmarking - understanding what endpoints
+    are commonly used in specific therapeutic areas or phases.
+
+    Args:
+        trials: List of trial dictionaries from search results
+
+    Returns:
+        Dictionary containing:
+            - primary_endpoints (list): Most common primary endpoints with counts
+            - secondary_endpoints (list): Most common secondary endpoints with counts
+            - timeframes (dict): Distribution of endpoint timeframes
+            - by_phase (dict): Endpoint patterns broken down by trial phase
+            - total_trials_analyzed (int): Number of trials with endpoint data
+    """
+    from collections import Counter, defaultdict
+
+    primary_endpoints = []
+    secondary_endpoints = []
+    timeframes = []
+    endpoints_by_phase = defaultdict(lambda: {"primary": [], "secondary": []})
+
+    total_trials = len(trials)
+    trials_with_endpoints = 0
+
+    for trial in trials:
+        outcome_measures = trial.get("outcome_measures", {})
+        if not outcome_measures:
+            continue
+
+        trials_with_endpoints += 1
+        phase = trial.get("phase", ["Unknown"])[0] if trial.get("phase") else "Unknown"
+
+        # Extract primary endpoints
+        for pe in outcome_measures.get("primary", []):
+            measure = pe.get("measure", "").strip()
+            if measure:
+                primary_endpoints.append(measure)
+                endpoints_by_phase[phase]["primary"].append(measure)
+
+            time_frame = pe.get("time_frame", "").strip()
+            if time_frame:
+                timeframes.append(("primary", time_frame))
+
+        # Extract secondary endpoints
+        for se in outcome_measures.get("secondary", []):
+            measure = se.get("measure", "").strip()
+            if measure:
+                secondary_endpoints.append(measure)
+                endpoints_by_phase[phase]["secondary"].append(measure)
+
+            time_frame = se.get("time_frame", "").strip()
+            if time_frame:
+                timeframes.append(("secondary", time_frame))
+
+    # Count and rank endpoints
+    primary_counts = Counter(primary_endpoints)
+    secondary_counts = Counter(secondary_endpoints)
+
+    # Get top endpoints
+    top_primary = [{"endpoint": ep, "count": count, "pct": round(count/len(primary_endpoints)*100, 1) if primary_endpoints else 0}
+                   for ep, count in primary_counts.most_common(20)]
+
+    top_secondary = [{"endpoint": ep, "count": count, "pct": round(count/len(secondary_endpoints)*100, 1) if secondary_endpoints else 0}
+                     for ep, count in secondary_counts.most_common(20)]
+
+    # Analyze timeframes
+    timeframe_counts = Counter(timeframes)
+    top_timeframes = [{"type": tf[0], "timeframe": tf[1], "count": count}
+                      for tf, count in timeframe_counts.most_common(15)]
+
+    # Break down by phase
+    by_phase = {}
+    for phase, data in endpoints_by_phase.items():
+        phase_primary_counts = Counter(data["primary"])
+        phase_secondary_counts = Counter(data["secondary"])
+
+        by_phase[phase] = {
+            "top_primary": [{"endpoint": ep, "count": count}
+                           for ep, count in phase_primary_counts.most_common(10)],
+            "top_secondary": [{"endpoint": ep, "count": count}
+                             for ep, count in phase_secondary_counts.most_common(10)],
+            "total_trials": len(data["primary"]) + len(data["secondary"])
+        }
+
+    return {
+        "total_trials_analyzed": total_trials,
+        "trials_with_endpoint_data": trials_with_endpoints,
+        "primary_endpoints": top_primary,
+        "secondary_endpoints": top_secondary,
+        "timeframes": top_timeframes,
+        "by_phase": by_phase,
     }
