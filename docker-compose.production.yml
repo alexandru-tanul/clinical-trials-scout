@@ -18,9 +18,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    networks:
-      - default
-      - proxy
     restart: always
 
   postgres:
@@ -59,15 +56,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    networks:
-      - default
-      - proxy
     restart: always
 
 volumes:
   postgres_data:
   static_volume:
-
-networks:
-  proxy:
-    external: true
